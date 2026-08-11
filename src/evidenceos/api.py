@@ -9,7 +9,7 @@ from .evidence_schema_v1 import UniversalEvidenceRecord
 from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guided_search
 from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, build_study_workspace
 from .pdf_ingest import extract_pdf_text, PdfIngestError
-from .trust_engine import TrustAssessment, assess_full_text
+from .universal_trust_engine import UniversalTrustAssessment, assess_full_text
 
 app = FastAPI(
     title="EvidenceOS",
@@ -33,7 +33,7 @@ class PdfExtractResponse(BaseModel):
     filename: str
     pages: int
     extracted_characters: int
-    trust_assessment: TrustAssessment
+    trust_assessment: UniversalTrustAssessment
 
 
 @app.get("/health")
@@ -394,16 +394,15 @@ function pdfSelected(){
 
 function renderTrustAssessment(t){
  if(!t)return '';
- if(!t.applicable){
-   return `<div class="trust-panel"><div class="kicker">How much can we trust this study?</div><h3 class="trust-title">${esc(t.headline)}</h3><div class="trust-banner">${esc(t.explanation)}</div></div>`;
- }
- const outcomes=(t.outcome_assessments||[]).map((a,i)=>{
+ const framework=`<span class="status warning">${esc(t.framework)}</span>`;
+ const genericDomains=(t.domains||[]).map(d=>`<div class="rob-domain ${d.judgement==='signal_present'?'low':'unresolved'}"><b>${esc(d.domain)}</b><span>${esc(d.rationale)}</span></div>`).join('');
+ const outcomes=(t.outcome_assessments||[]).map(a=>{
    const domains=(a.domains||[]).map(d=>`<div class="rob-domain ${esc(d.judgement)}"><b>${esc(d.domain_id)} · ${esc(d.judgement)}</b><span>${esc(d.domain_name)}</span></div>`).join('');
    return `<div class="record" style="margin-top:12px"><div class="block-head"><div><b>${esc(a.outcome||'Outcome')}</b><div class="muted">${esc([a.timepoint,a.effect_measure].filter(Boolean).join(' · '))}</div></div><span class="status ${a.overall_judgement==='low'?'verified':a.overall_judgement==='high'?'critical':'warning'}">${esc(a.overall_judgement)}</span></div><div class="rob-grid">${domains}</div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Why this judgement?</summary><div class="muted" style="margin-top:6px">${esc(a.overall_rationale||'')}</div></details></div>`;
  }).join('');
- return `<div class="trust-panel"><div class="trust-head"><div><div class="kicker">How much can we trust this study?</div><h3 class="trust-title">${esc(t.headline)}</h3></div><span class="status warning">${esc(t.framework)}</span></div><div class="trust-banner">${esc(t.explanation)}</div>${outcomes}</div>`;
+ const limitations=(t.limitations||[]).length?`<div class="method-note"><b>Interpretation limits</b><ul class="req-list">${t.limitations.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+ return `<div class="trust-panel"><div class="trust-head"><div><div class="kicker">How much can we trust this study?</div><h3 class="trust-title">${esc(t.headline)}</h3><div class="muted">Detected design: ${esc(t.design)}</div></div>${framework}</div><div class="trust-banner">${esc(t.explanation)}</div>${genericDomains?`<div class="rob-grid">${genericDomains}</div>`:''}${outcomes}${limitations}</div>`;
 }
-
 async function runPdf(){
  const btn=document.getElementById('runBtn'),err=document.getElementById('err');
  const f=document.getElementById('pdfFile').files[0];err.textContent='';
