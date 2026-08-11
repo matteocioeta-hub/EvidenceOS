@@ -10,6 +10,7 @@ from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guid
 from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, build_study_workspace
 from .pdf_ingest import extract_pdf_text, PdfIngestError
 from .universal_trust_engine import UniversalTrustAssessment, assess_full_text
+from .evidence_workspace import SynthesisRequest, SynthesisResponse, synthesize
 
 app = FastAPI(
     title="EvidenceOS",
@@ -102,6 +103,14 @@ async def extract_pdf(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         await file.close()
+
+
+@app.post("/v1/synthesize", response_model=SynthesisResponse)
+def synthesize_evidence(request: SynthesisRequest):
+    try:
+        return synthesize(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/research-search", response_model=GuidedSearchResponse)
@@ -206,11 +215,20 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .rob-domain.low{background:#eff8f3}.rob-domain.some_concerns{background:#fff8e5}.rob-domain.high{background:#fff0ed}.rob-domain.unresolved{background:#f2f3f4}
 @media(max-width:700px){.rob-grid{grid-template-columns:1fr 1fr}}
 
+
+.corpus-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border:1px solid var(--line);background:#f6f9f7;border-radius:14px;margin:14px 0}
+.corpus-count{font-weight:800}.corpus-actions{display:flex;gap:7px;flex-wrap:wrap}.corpus-actions button{padding:8px 10px;font-size:11px}
+.synth-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.synth-card{border:1px solid var(--line);background:white;border-radius:18px;padding:18px}
+.confidence-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.conf-item{padding:11px;background:#f5f8f6;border-radius:12px}.conf-item b{display:block;font-size:11px;text-transform:uppercase;color:var(--brand2)}.conf-item span{font-size:12px}
+.outcome-body{border-top:1px solid var(--line);padding:14px 0}.outcome-body:first-child{border-top:0}.direction-bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.direction-chip{font-size:10px;padding:4px 7px;border-radius:999px;background:#edf3ef;color:var(--brand)}
+.study-chip{display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:9px;background:#edf3ef;font-size:11px;margin:3px}
+@media(max-width:800px){.synth-grid{grid-template-columns:1fr}.confidence-grid{grid-template-columns:1fr 1fr}}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
 <body>
-<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="navlinks"><a href="#ask">Ask EvidenceOS</a><a href="#workspace">Analyse a study</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div></div></nav>
+<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="navlinks"><a href="#ask">Ask EvidenceOS</a><a href="#workspace">Analyse a study</a><a href="#synthesis">Evidence Synthesis</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div></div></nav>
 <main>
 <section class="hero"><div class="wrap"><span class="eyebrow"><span class="dot"></span> Auditable evidence intelligence</span><h1>Evidence you can inspect,<br>not just summaries you can read.</h1><div class="hero-grid"><div><p class="lede">EvidenceOS reconstructs the path from scientific reports to structured evidence, preserving provenance and surfacing contradictions before they become conclusions.</p><a href="#workspace"><button class="primary" style="padding:14px 18px">Analyse a study →</button></a></div><div class="hero-card"><div class="kicker">Current public alpha</div><div class="metric"><div><b>Source-linked</b><span>Every direct field carries provenance</span></div><div><b>Field-level</b><span>Verified, derived or unresolved</span></div><div><b>Adversarial</b><span>Consistency alarms challenge outputs</span></div></div></div></div></div></section>
 
@@ -252,7 +270,21 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 <div id="filePill" class="file-pill"></div>
 </div><div class="actions"><button id="runBtn" class="primary" onclick="runPdf()">Analyse full-text PDF</button></div><div id="err" class="muted" style="margin-top:12px;color:#913f34"></div></div><div class="panel results" id="results"><div class="empty"><div><div class="empty-icon">⌁</div><strong>Your full-text evidence record will appear here.</strong><div class="muted" style="max-width:370px;margin:7px auto">EvidenceOS separates what is reported, what is derived and what remains uncertain.</div></div></div></div></div></div></section>
 
-<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Experimental</span><h3>Body of Evidence</h3><p>Groups compatible results into claims without collapsing studies, outcomes or timepoints.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
+
+<section id="synthesis"><div class="wrap">
+<div class="kicker">Multi-study workspace</div>
+<h2 class="section-title">Evidence Synthesis Workspace.</h2>
+<p class="section-sub">Save analysed full-text studies into a local evidence corpus, then inspect outcome patterns, contradictions, uncertainty and methodological coverage. The workspace stays in this browser unless you clear it.</p>
+<div class="panel" style="padding:22px">
+  <div class="corpus-bar">
+    <div><div class="corpus-count"><span id="corpusCount">0</span> saved studies</div><div class="muted">Stored locally in this browser</div></div>
+    <div class="corpus-actions"><button class="secondary" onclick="renderCorpus()">Refresh</button><button class="secondary" onclick="clearCorpus()">Clear corpus</button><button id="synthBtn" class="primary" onclick="synthesizeCorpus()">Synthesize evidence</button></div>
+  </div>
+  <div id="corpusList" style="margin-bottom:16px"></div>
+  <div id="synthResults"><div class="empty" style="height:260px"><div><div class="empty-icon">Σ</div><strong>No synthesis yet.</strong><div class="muted">Analyse and save at least one full-text PDF.</div></div></div></div>
+</div>
+</div></section>
+<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Live alpha</span><h3>Body of Evidence</h3><p>Stores analysed studies locally and builds outcome-level evidence patterns without collapsing incompatible results.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
 </main>
 
 <div id="studyDrawer" class="study-drawer" onclick="drawerBackdrop(event)">
@@ -397,6 +429,63 @@ async function searchEvidence(){
  finally{btn.disabled=false;btn.textContent='Search PubMed'}
 }
 
+
+const CORPUS_KEY='evidenceos_v7_corpus';
+
+function getCorpus(){
+ try{return JSON.parse(localStorage.getItem(CORPUS_KEY)||'[]')}catch(_){return []}
+}
+function setCorpus(items){
+ localStorage.setItem(CORPUS_KEY,JSON.stringify(items));renderCorpus();
+}
+function saveCurrentStudy(){
+ const s=window._lastAnalysedStudy;if(!s)return;
+ const items=getCorpus();
+ const idx=items.findIndex(x=>x.report_id===s.report_id);
+ if(idx>=0)items[idx]=s;else items.push(s);
+ setCorpus(items);
+ document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});
+}
+function removeCorpusStudy(reportId){
+ setCorpus(getCorpus().filter(x=>x.report_id!==reportId));
+}
+function clearCorpus(){
+ if(!confirm('Clear all locally saved EvidenceOS studies from this browser?'))return;
+ setCorpus([]);document.getElementById('synthResults').innerHTML='<div class="empty" style="height:260px"><div><strong>Corpus cleared.</strong></div></div>';
+}
+function renderCorpus(){
+ const items=getCorpus(),count=document.getElementById('corpusCount'),root=document.getElementById('corpusList');
+ if(count)count.textContent=items.length;
+ if(!root)return;
+ root.innerHTML=items.length?items.map(s=>`<span class="study-chip"><b>${esc(s.title)}</b> · ${esc(s.design)} <button style="padding:2px 5px;background:transparent;color:#7b4b43" onclick="removeCorpusStudy('${esc(s.report_id)}')">×</button></span>`).join(''):'<div class="muted">No studies saved yet.</div>';
+}
+async function synthesizeCorpus(){
+ const items=getCorpus(),btn=document.getElementById('synthBtn'),root=document.getElementById('synthResults');
+ if(!items.length){root.innerHTML='<div class="record">Save at least one analysed PDF first.</div>';return}
+ btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Synthesizing';
+ try{
+   const r=await fetch('/v1/synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:document.getElementById('qtext')?.value||null,studies:items})});
+   const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
+   if(!r.ok)throw new Error(d?.detail||`Synthesis failed (HTTP ${r.status})`);
+   renderSynthesis(d);
+ }catch(e){root.innerHTML=`<div class="record" style="color:#913f34">${esc(e.message)}</div>`}
+ finally{btn.disabled=false;btn.textContent='Synthesize evidence'}
+}
+function renderSynthesis(d){
+ const c=d.confidence||{};
+ const outcomes=(d.outcomes||[]).map(o=>{
+   const chips=Object.entries(o.directions||{}).map(([k,v])=>`<span class="direction-chip">${esc(k)}: ${v}</span>`).join('');
+   return `<div class="outcome-body"><div class="block-head"><div><b>${esc(o.outcome)}</b><div class="muted">${o.studies} study/studies · ${o.results} extracted result(s)</div></div><span class="status ${o.consistency==='consistent'?'verified':'warning'}">${esc(o.consistency)}</span></div><div class="direction-bar">${chips}</div><div class="muted" style="margin-top:8px">${esc(o.interpretation)}</div><div class="row"><span>Precision</span><b>${esc(o.precision)}</b></div><div class="row"><span>Methodological support</span><b>${esc(o.methodological_support)}</b></div></div>`;
+ }).join('');
+ const contradictions=(d.contradictions||[]).map(x=>`<div class="alarm warning">${esc(x)}</div>`).join('');
+ const gaps=(d.gaps||[]).map(x=>`<div class="alarm info">${esc(x)}</div>`).join('');
+ document.getElementById('synthResults').innerHTML=`
+ <div class="synth-card" style="margin-bottom:16px"><div class="kicker">What does the evidence suggest?</div><h3 style="font-size:25px;margin:4px 0">${esc(d.headline)}</h3><div class="muted">${esc(d.interpretation_boundary)}</div></div>
+ <div class="synth-card" style="margin-bottom:16px"><div class="kicker">How resolved is the evidence?</div><h3 style="margin:4px 0">${esc(c.overall_label)}</h3><div class="confidence-grid"><div class="conf-item"><b>Quantity</b><span>${esc(c.quantity)}</span></div><div class="conf-item"><b>Consistency</b><span>${esc(c.consistency)}</span></div><div class="conf-item"><b>Methodology</b><span>${esc(c.methodological_trust)}</span></div><div class="conf-item"><b>Precision</b><span>${esc(c.precision)}</span></div><div class="conf-item"><b>Directness</b><span>${esc(c.directness)}</span></div></div>${(c.rationale||[]).map(x=>`<div class="muted">• ${esc(x)}</div>`).join('')}</div>
+ <div class="synth-grid"><div class="synth-card"><div class="kicker">Outcome bodies</div>${outcomes||'<div class="muted">No outcome-level evidence available.</div>'}</div><div><div class="synth-card"><div class="kicker">Contradictions</div>${contradictions||'<div class="muted">No explicit directional contradiction detected.</div>'}</div><div class="synth-card" style="margin-top:16px"><div class="kicker">What remains uncertain?</div>${gaps||'<div class="muted">No automatically detectable gap in the current corpus.</div>'}</div></div></div>`;
+}
+window.addEventListener('DOMContentLoaded',renderCorpus);
+
 function pdfSelected(){
  const f=document.getElementById('pdfFile').files[0];
  const pill=document.getElementById('filePill');
@@ -441,12 +530,25 @@ async function runPdf(){
    }
    if(!data?.record)throw new Error('EvidenceOS returned an invalid PDF analysis response.');
    render(data.record,data.trust_assessment?.design||null);
+   window._lastAnalysedStudy={
+     report_id:rid.value||data.record.report_id,
+     title:ttl.value||data.record.title,
+     design:data.trust_assessment?.design||'other',
+     framework:data.trust_assessment?.framework||null,
+     trust_overall:data.trust_assessment?.overall_judgement||null,
+     record:data.record,
+     trust_assessment:data.trust_assessment
+   };
    const results=document.getElementById('results');
    results.insertAdjacentHTML('beforeend',renderTrustAssessment(data.trust_assessment));
    const meta=document.createElement('div');
    meta.className='pdf-meta';
    meta.innerHTML=`<span>${esc(data.filename)}</span><span>${esc(data.pages)} pages</span><span>${esc(data.extracted_characters)} extracted characters</span>`;
    results.insertBefore(meta,results.firstChild);
+   const save=document.createElement('div');
+   save.className='corpus-bar';
+   save.innerHTML='<div><b>Add this study to the Evidence Synthesis corpus</b><div class="muted">The full analysis summary will be stored locally in this browser.</div></div><button class="primary" onclick="saveCurrentStudy()">Save study</button>';
+   results.insertBefore(save,meta.nextSibling);
  }catch(e){err.textContent=e.message}
  finally{btn.disabled=false;btn.textContent='Analyse full-text PDF'}
 }
