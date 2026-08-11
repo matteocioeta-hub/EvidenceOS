@@ -6,6 +6,7 @@ from . import __version__
 from .config import settings
 from .extraction_engine_v1 import ExtractionEngineV1
 from .evidence_schema_v1 import UniversalEvidenceRecord
+from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guided_search
 
 app = FastAPI(
     title="EvidenceOS",
@@ -43,6 +44,14 @@ def extract(request: ExtractRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@app.post("/v1/research-search", response_model=GuidedSearchResponse)
+def research_search(request: GuidedSearchRequest):
+    try:
+        return run_guided_search(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return HTMLResponse(r"""<!doctype html>
@@ -71,13 +80,43 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .results{padding:22px;min-height:560px}.empty{height:500px;display:grid;place-items:center;text-align:center;color:var(--muted)}.empty-icon{width:58px;height:58px;border-radius:18px;background:#edf4f0;margin:0 auto 13px;display:grid;place-items:center;color:var(--brand);font-size:22px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.stat{background:var(--soft);padding:14px;border-radius:14px}.stat strong{display:block;font-size:19px}.stat small{color:var(--muted)}.status{display:inline-flex;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.verified{background:#dff5e8;color:#236846}.derived{background:#e7eef8;color:#35557f}.warning{background:var(--warn);color:#755411}.critical{background:var(--danger);color:#8c3529}.unverified,.ambiguous,.conflicting{background:#f0eceb;color:#6e4b45}
 .block{border-top:1px solid var(--line);padding:18px 0}.block:first-of-type{border-top:0}.block-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.block h4{margin:0;font-size:15px}.record{margin-top:10px;padding:13px;background:#fafcfb;border:1px solid #e5ece8;border-radius:14px;font-size:13px}.row{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:5px 0}.row span:first-child{color:var(--muted)}.alarm{padding:12px 13px;border-radius:13px;margin-top:8px;font-size:13px}.alarm.warning{border:1px solid #f0dfa9}.alarm.critical{border:1px solid #efc0b9}.alarm.info{background:#edf3f7;color:#416174}
 .modules{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.module{padding:20px;border:1px solid var(--line);border-radius:18px;background:white}.module h3{margin:8px 0 6px;font-size:16px}.module p{margin:0;color:var(--muted);font-size:13px}.module .state{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--brand2)}.foot{margin-top:36px;padding:28px 0 44px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;color:var(--muted);font-size:12px}.spinner{width:17px;height:17px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
+
+.searchbox{background:linear-gradient(145deg,#173f35,#224f43);color:white;border-radius:26px;padding:26px;box-shadow:var(--shadow)}
+.searchbox .field label{color:#d6e6df}.searchbox input{background:rgba(255,255,255,.98)}
+.searchgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.searchwide{grid-column:1/-1}
+.search-results{margin-top:22px}.record-list{display:grid;gap:10px}.paper{border:1px solid var(--line);background:white;border-radius:16px;padding:16px}
+.paper-title{font-weight:750;line-height:1.3}.paper-meta{color:var(--muted);font-size:12px;margin-top:5px}.paper-abstract{font-size:13px;color:#41534c;margin-top:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.db{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;background:#eaf2ee;color:#315e50;padding:4px 7px;border-radius:7px;margin-right:5px}
+.pico{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}.pico div{padding:11px;background:#f4f8f6;border-radius:12px}.pico b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--brand2);margin-bottom:4px}.pico span{font-size:12px}
+
+@media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
 <body>
-<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="navlinks"><a href="#workspace">Analyse a study</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div></div></nav>
+<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="navlinks"><a href="#ask">Ask EvidenceOS</a><a href="#workspace">Analyse a study</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div></div></nav>
 <main>
 <section class="hero"><div class="wrap"><span class="eyebrow"><span class="dot"></span> Auditable evidence intelligence</span><h1>Evidence you can inspect,<br>not just summaries you can read.</h1><div class="hero-grid"><div><p class="lede">EvidenceOS reconstructs the path from scientific reports to structured evidence, preserving provenance and surfacing contradictions before they become conclusions.</p><a href="#workspace"><button class="primary" style="padding:14px 18px">Analyse a study →</button></a></div><div class="hero-card"><div class="kicker">Current public alpha</div><div class="metric"><div><b>Source-linked</b><span>Every direct field carries provenance</span></div><div><b>Field-level</b><span>Verified, derived or unresolved</span></div><div><b>Adversarial</b><span>Consistency alarms challenge outputs</span></div></div></div></div></div></section>
+
+
+<section id="ask"><div class="wrap">
+<div class="kicker">Question-first evidence discovery</div>
+<h2 class="section-title">Ask EvidenceOS.</h2>
+<p class="section-sub">Define the clinical or research question you actually want answered. In this public alpha, you confirm the PICO explicitly so the search logic remains transparent and reproducible.</p>
+<div class="searchbox">
+  <div class="searchgrid">
+    <div class="field searchwide"><label>Research question</label><input id="qtext" placeholder="e.g. Does exercise improve pain and fatigue in adults with fibromyalgia?"></div>
+    <div class="field"><label>Population</label><input id="qpop" placeholder="Adults with fibromyalgia"></div>
+    <div class="field"><label>Intervention</label><input id="qint" placeholder="Therapeutic exercise"></div>
+    <div class="field"><label>Comparator</label><input id="qcomp" placeholder="Usual care / active comparator / leave blank"></div>
+    <div class="field"><label>Outcomes</label><input id="qout" placeholder="Pain, fatigue, quality of life"></div>
+    <div class="field"><label>Timepoint</label><input id="qtime" placeholder="12 weeks / long term / leave blank"></div>
+    <div class="field"><label>Search depth</label><input id="qmax" type="number" min="5" max="50" value="15"></div>
+  </div>
+  <div class="actions"><button class="secondary" onclick="questionDemo()">Load example</button><button id="searchBtn" class="primary" onclick="searchEvidence()">Search PubMed + OpenAlex</button></div>
+  <div id="searchErr" style="margin-top:12px;color:#ffd7cf;font-size:13px"></div>
+</div>
+<div id="searchResults" class="search-results"></div>
+</div></section>
 
 <section id="workspace"><div class="wrap"><div class="kicker">Live workspace</div><h2 class="section-title">Turn a report into an auditable evidence record.</h2><p class="section-sub">Paste scientific report text. EvidenceOS will extract what it can support, reconstruct sample structure, map results and flag inconsistencies. The alpha intentionally leaves unsupported fields unresolved.</p><div class="workspace"><div class="panel form"><h3>Study input</h3><div class="muted">Plain-text report extraction</div><div class="field"><label>Report ID</label><input id="rid" value="RCT-001"></div><div class="field"><label>Study title</label><input id="ttl" placeholder="Paste the study title"></div><div class="field"><label>Report text</label><textarea id="txt" placeholder="Paste Methods, Results, tables converted to text, or the relevant full-text sections..."></textarea></div><div class="actions"><button class="secondary" onclick="demo()">Load demo</button><button id="runBtn" class="primary" onclick="run()">Extract evidence</button></div><div id="err" class="muted" style="margin-top:12px;color:#913f34"></div></div><div class="panel results" id="results"><div class="empty"><div><div class="empty-icon">⌁</div><strong>Your evidence record will appear here.</strong><div class="muted" style="max-width:370px;margin:7px auto">EvidenceOS separates what is reported, what is derived and what remains uncertain.</div></div></div></div></div></div></section>
 
@@ -101,6 +140,39 @@ function render(rec){
  html.push(`<div class="block"><details><summary style="cursor:pointer;font-weight:700">Raw record JSON</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f7f9f8;padding:14px;border-radius:12px;overflow:auto">${esc(JSON.stringify(rec,null,2))}</pre></details></div>`);
  document.getElementById('results').innerHTML=html.join('');
 }
+
+function questionDemo(){
+ qtext.value='Does exercise improve pain and fatigue in adults with fibromyalgia?';
+ qpop.value='Adults with fibromyalgia';qint.value='Therapeutic exercise';
+ qcomp.value='Usual care';qout.value='Pain, fatigue';qtime.value='12 weeks';qmax.value=12;
+}
+function renderSearch(data){
+ const q=data.structured_question, r=data.retrieval||{}, records=r.records||[], strategies=r.strategies||[];
+ const root=document.getElementById('searchResults');
+ const pico=`<div class="pico"><div><b>Population</b><span>${esc(q.population?.label)}</span></div><div><b>Intervention</b><span>${esc(q.intervention?.label)}</span></div><div><b>Comparator</b><span>${esc(q.comparator?.label)}</span></div><div><b>Outcomes</b><span>${esc((q.outcomes||[]).map(x=>x.label).join(', '))}</span></div></div>`;
+ const papers=records.slice(0,30).map(p=>{
+   const db=(p.source_databases||[]).map(x=>`<span class="db">${esc(x)}</span>`).join('');
+   const ident=[p.year,p.journal,p.pmid?`PMID ${p.pmid}`:'',p.doi?`DOI ${p.doi}`:''].filter(Boolean).join(' · ');
+   return `<div class="paper"><div>${db}</div><div class="paper-title">${esc(p.title)}</div><div class="paper-meta">${esc(ident)}</div>${p.abstract?`<div class="paper-abstract">${esc(p.abstract)}</div>`:''}</div>`;
+ }).join('');
+ root.innerHTML=`<div class="panel" style="padding:22px"><div class="block-head"><div><div class="kicker">Evidence Map</div><h3 style="font-size:24px;margin:3px 0">${esc(q.original_text)}</h3></div><span class="status verified">live retrieval</span></div>${pico}<div class="summary"><div class="stat"><strong>${r.records_before_deduplication??0}</strong><small>Records retrieved</small></div><div class="stat"><strong>${r.records_after_deduplication??0}</strong><small>Unique records</small></div><div class="stat"><strong>${strategies.length}</strong><small>Search strategies</small></div><div class="stat"><strong>2</strong><small>Databases</small></div></div><div class="record" style="margin-bottom:14px"><b>Interpretation boundary</b><div class="muted">This is a discovery map, not yet a pooled conclusion. Certainty, risk of bias and gap claims require full-text evidence processing.</div></div><div class="record-list">${papers||'<div class="record muted">No records returned.</div>'}</div><details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">Search strategies</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f7f9f8;padding:14px;border-radius:12px">${esc(JSON.stringify(strategies,null,2))}</pre></details></div>`;
+}
+async function searchEvidence(){
+ const btn=document.getElementById('searchBtn'),err=document.getElementById('searchErr');err.textContent='';
+ const outs=qout.value.split(',').map(x=>x.trim()).filter(Boolean);
+ if(!qtext.value.trim()||!qpop.value.trim()||!qint.value.trim()||!outs.length){err.textContent='Question, population, intervention and at least one outcome are required.';return}
+ btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Searching';
+ try{
+   const response=await fetch('/v1/research-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+     question:qtext.value,population:qpop.value,intervention:qint.value,comparator:qcomp.value,
+     outcomes:outs,timepoint:qtime.value,max_results_per_strategy:Number(qmax.value||15)
+   })});
+   const data=await response.json();if(!response.ok)throw new Error(data.detail||'Search failed');
+   renderSearch(data);
+ }catch(e){err.textContent=e.message}
+ finally{btn.disabled=false;btn.textContent='Search PubMed + OpenAlex'}
+}
+
 async function run(){
  const btn=document.getElementById('runBtn'),err=document.getElementById('err');err.textContent='';
  if(!ttl.value.trim()||!txt.value.trim()){err.textContent='Add a study title and report text.';return}
