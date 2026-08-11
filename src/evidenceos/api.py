@@ -11,6 +11,7 @@ from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, buil
 from .pdf_ingest import extract_pdf_text, PdfIngestError
 from .universal_trust_engine import UniversalTrustAssessment, assess_full_text
 from .evidence_workspace import SynthesisRequest, SynthesisResponse, synthesize
+from .gap_falsification_live import GapFalsificationRequest, GapFalsificationResponse, falsify_gap
 
 app = FastAPI(
     title="EvidenceOS",
@@ -109,6 +110,14 @@ async def extract_pdf(
 def synthesize_evidence(request: SynthesisRequest):
     try:
         return synthesize(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/falsify-gap", response_model=GapFalsificationResponse)
+def falsify_gap_endpoint(request: GapFalsificationRequest):
+    try:
+        return falsify_gap(request)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -224,6 +233,15 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .study-chip{display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:9px;background:#edf3ef;font-size:11px;margin:3px}
 @media(max-width:800px){.synth-grid{grid-template-columns:1fr}.confidence-grid{grid-template-columns:1fr 1fr}}
 
+
+.gap-card{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;margin-top:10px}
+.gap-card .gap-type{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--brand2)}
+.gap-actions{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.verdict{display:inline-flex;padding:5px 8px;border-radius:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.verdict.rejected{background:#e8f4ec;color:#276344}.verdict.refined{background:#fff1cc;color:#73530d}.verdict.not_falsified{background:#edf0f2;color:#45565d}.verdict.unresolved{background:#f4e9e6;color:#70483f}
+.antigap-result{border-top:1px solid var(--line);padding:9px 0}.antigap-result:first-child{border-top:0}.antigap-class{font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.06em}
+.antigap-class.direct{color:#276344}.antigap-class.partial{color:#8a6511}.antigap-class.indirect{color:#6c7477}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
@@ -284,7 +302,7 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
   <div id="synthResults"><div class="empty" style="height:260px"><div><div class="empty-icon">Σ</div><strong>No synthesis yet.</strong><div class="muted">Analyse and save at least one full-text PDF.</div></div></div></div>
 </div>
 </div></section>
-<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Live alpha</span><h3>Body of Evidence</h3><p>Stores analysed studies locally and builds outcome-level evidence patterns without collapsing incompatible results.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
+<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Live alpha</span><h3>Body of Evidence</h3><p>Stores analysed studies locally and builds outcome-level evidence patterns without collapsing incompatible results.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Live alpha</span><h3>Gap Falsification</h3><p>Turns apparent gaps into hypotheses and searches PubMed for counterevidence before calling them research opportunities.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
 </main>
 
 <div id="studyDrawer" class="study-drawer" onclick="drawerBackdrop(event)">
@@ -471,6 +489,27 @@ async function synthesizeCorpus(){
  }catch(e){root.innerHTML=`<div class="record" style="color:#913f34">${esc(e.message)}</div>`}
  finally{btn.disabled=false;btn.textContent='Synthesize evidence'}
 }
+
+async function falsifyGap(g){
+ const root=document.getElementById(`gap-result-${g.gap_id}`);
+ if(!root)return;
+ const population=document.getElementById('qpop')?.value?.trim()||'unspecified population';
+ const intervention=document.getElementById('qint')?.value?.trim()||'unspecified intervention';
+ const comparator=document.getElementById('qcomp')?.value?.trim()||'';
+ const timepoint=document.getElementById('qtime')?.value?.trim()||'';
+ root.innerHTML='<div class="muted" style="margin-top:10px"><span class="spinner" style="border-color:#173f3544;border-top-color:#173f35"></span>Trying to falsify this gap on PubMed…</div>';
+ try{
+   const r=await fetch('/v1/falsify-gap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+     gap_id:g.gap_id,gap_type:g.gap_type,topic:g.topic,statement:g.statement,
+     population,intervention,comparator,timepoint,max_results:15
+   })});
+   const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
+   if(!r.ok)throw new Error(d?.detail||`Gap falsification failed (HTTP ${r.status})`);
+   const records=(d.records||[]).slice(0,8).map(x=>`<div class="antigap-result"><div class="antigap-class ${esc(x.classification)}">${esc(x.classification)}</div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
+   root.innerHTML=`<div class="record" style="margin-top:10px"><div class="block-head"><b>Gap falsification result</b><span class="verdict ${esc(d.verdict)}">${esc(d.verdict)}</span></div><div style="margin-top:8px">${esc(d.interpretation)}</div>${d.revised_gap?`<div class="alarm info"><b>Refined statement</b><div>${esc(d.revised_gap)}</div></div>`:''}<div class="row"><span>Records examined</span><b>${d.records_examined}</b></div><div class="row"><span>Direct counterevidence</span><b>${d.direct_evidence}</b></div><div class="row"><span>Partial counterevidence</span><b>${d.partial_evidence}</b></div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Anti-gap search provenance</summary><div class="muted" style="margin-top:6px"><b>PubMed query</b><br>${esc(d.anti_gap_query)}</div><div style="margin-top:8px">${records||'<span class="muted">No records returned.</span>'}</div><div class="method-note">${esc(d.negative_search_caveat)}</div></details></div>`;
+ }catch(e){root.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`}
+}
+
 function renderSynthesis(d){
  const c=d.confidence||{};
  const outcomes=(d.outcomes||[]).map(o=>{
@@ -479,10 +518,11 @@ function renderSynthesis(d){
  }).join('');
  const contradictions=(d.contradictions||[]).map(x=>`<div class="alarm warning">${esc(x)}</div>`).join('');
  const gaps=(d.gaps||[]).map(x=>`<div class="alarm info">${esc(x)}</div>`).join('');
+ const gapHyp=(d.gap_hypotheses||[]).map(g=>`<div class="gap-card" id="card-${esc(g.gap_id)}"><div class="gap-type">${esc(g.gap_type)} hypothesis</div><b>${esc(g.statement)}</b><div class="muted" style="margin-top:5px">${esc(g.reason)}</div><div class="gap-actions"><button class="small-btn" onclick='falsifyGap(${JSON.stringify(g)})'>Challenge this gap →</button><span class="muted">Search PubMed for counterevidence</span></div><div id="gap-result-${esc(g.gap_id)}"></div></div>`).join('');
  document.getElementById('synthResults').innerHTML=`
  <div class="synth-card" style="margin-bottom:16px"><div class="kicker">What does the evidence suggest?</div><h3 style="font-size:25px;margin:4px 0">${esc(d.headline)}</h3><div class="muted">${esc(d.interpretation_boundary)}</div></div>
  <div class="synth-card" style="margin-bottom:16px"><div class="kicker">How resolved is the evidence?</div><h3 style="margin:4px 0">${esc(c.overall_label)}</h3><div class="confidence-grid"><div class="conf-item"><b>Quantity</b><span>${esc(c.quantity)}</span></div><div class="conf-item"><b>Consistency</b><span>${esc(c.consistency)}</span></div><div class="conf-item"><b>Methodology</b><span>${esc(c.methodological_trust)}</span></div><div class="conf-item"><b>Precision</b><span>${esc(c.precision)}</span></div><div class="conf-item"><b>Directness</b><span>${esc(c.directness)}</span></div></div>${(c.rationale||[]).map(x=>`<div class="muted">• ${esc(x)}</div>`).join('')}</div>
- <div class="synth-grid"><div class="synth-card"><div class="kicker">Outcome bodies</div>${outcomes||'<div class="muted">No outcome-level evidence available.</div>'}</div><div><div class="synth-card"><div class="kicker">Contradictions</div>${contradictions||'<div class="muted">No explicit directional contradiction detected.</div>'}</div><div class="synth-card" style="margin-top:16px"><div class="kicker">What remains uncertain?</div>${gaps||'<div class="muted">No automatically detectable gap in the current corpus.</div>'}</div></div></div>`;
+ <div class="synth-grid"><div class="synth-card"><div class="kicker">Outcome bodies</div>${outcomes||'<div class="muted">No outcome-level evidence available.</div>'}</div><div><div class="synth-card"><div class="kicker">Contradictions</div>${contradictions||'<div class="muted">No explicit directional contradiction detected.</div>'}</div><div class="synth-card" style="margin-top:16px"><div class="kicker">What remains uncertain?</div>${gaps||'<div class="muted">No broad uncertainty automatically detected.</div>'}<div style="margin-top:14px"><b>Falsifiable gap hypotheses</b><div class="muted">EvidenceOS treats each apparent gap as a hypothesis and actively searches for counterevidence before calling it a research opportunity.</div>${gapHyp||'<div class="record muted">No falsifiable gap hypothesis generated from this corpus.</div>'}</div></div></div></div>`;
 }
 window.addEventListener('DOMContentLoaded',renderCorpus);
 
