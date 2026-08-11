@@ -313,13 +313,20 @@ function renderStudyWorkspace(d){
  <div class="block"><h4>Eligibility against your PICO</h4><div class="record">${dims||'<span class="muted">No dimension-level rationale available.</span>'}</div></div>
  <div class="block"><h4>What EvidenceOS still needs</h4><ul class="req-list">${req}</ul><div class="method-note">${esc(d.methodological_note)}</div></div>
  ${p.abstract?`<div class="block"><h4>Abstract</h4><div class="record">${esc(p.abstract)}</div></div>`:''}
- <div class="block"><div class="actions"><button class="primary" onclick="sendStudyToFullText(${JSON.stringify(JSON.stringify({record_id:p.record_id,title:p.title}))})">Continue to full-text analysis →</button></div><div class="muted" style="margin-top:8px">Upload the full-text PDF in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.</div></div>`;
+ <div class="block"><div class="actions"><button type="button" class="primary" onclick="sendStudyToFullTextById()">Continue to full-text analysis →</button></div><div class="muted" style="margin-top:8px">Upload the full-text PDF in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.</div></div>`;
+ window._activeStudy={record_id:p.record_id||'STUDY',title:p.title||''};
 }
-function sendStudyToFullText(serialized){
- const x=JSON.parse(serialized);
- rid.value=x.record_id||'STUDY';ttl.value=x.title||'';
- closeStudy();document.getElementById('workspace').scrollIntoView({behavior:'smooth'});
- setTimeout(()=>document.getElementById('pdfDrop').click(),450);
+function sendStudyToFullTextById(){
+ const x=window._activeStudy||{};
+ document.getElementById('rid').value=x.record_id||'STUDY';
+ document.getElementById('ttl').value=x.title||'';
+ closeStudy();
+ const workspace=document.getElementById('workspace');
+ if(workspace)workspace.scrollIntoView({behavior:'smooth',block:'start'});
+ setTimeout(()=>{
+   const input=document.getElementById('pdfFile');
+   if(input)input.click();
+ },650);
 }
 function closeStudy(){document.getElementById('studyDrawer').classList.remove('open');document.body.style.overflow=''}
 function drawerBackdrop(e){if(e.target.id==='studyDrawer')closeStudy()}
