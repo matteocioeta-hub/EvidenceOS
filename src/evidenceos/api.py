@@ -7,6 +7,7 @@ from .config import settings
 from .extraction_engine_v1 import ExtractionEngineV1
 from .evidence_schema_v1 import UniversalEvidenceRecord
 from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guided_search
+from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, build_study_workspace
 
 app = FastAPI(
     title="EvidenceOS",
@@ -48,6 +49,14 @@ def extract(request: ExtractRequest):
 def research_search(request: GuidedSearchRequest):
     try:
         return run_guided_search(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/study-workspace", response_model=StudyWorkspaceResponse)
+def study_workspace(request: StudyWorkspaceRequest):
+    try:
+        return build_study_workspace(request)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -107,6 +116,18 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .scope-option input:checked + .scope-card{background:white;border-color:white;box-shadow:0 5px 16px rgba(0,0,0,.12)}
 .scope-option input:checked + .scope-card b{color:var(--brand)}.scope-option input:checked + .scope-card span{color:var(--muted)}
 .scope-note{font-size:11px;color:#d6e6df;margin-top:8px;line-height:1.4}
+
+.workspace-action{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}.small-btn{padding:8px 10px;font-size:11px;border-radius:9px;background:#edf3ef;color:var(--brand)}
+.study-drawer{position:fixed;inset:0;background:rgba(12,25,21,.46);z-index:50;display:none;align-items:stretch;justify-content:flex-end}.study-drawer.open{display:flex}
+.drawer-panel{width:min(700px,94vw);height:100%;overflow:auto;background:#fbfcfb;padding:24px;box-shadow:-20px 0 60px rgba(0,0,0,.16)}
+.drawer-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;position:sticky;top:-24px;background:#fbfcfb;padding:24px 0 14px;z-index:2;border-bottom:1px solid var(--line)}
+.close-btn{width:36px;height:36px;border-radius:10px;background:#edf3ef;color:var(--brand);padding:0}
+.readiness{margin:16px 0;background:#edf3ef;border-radius:999px;height:10px;overflow:hidden}.readiness span{display:block;height:100%;background:var(--brand)}
+.signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.signal{border:1px solid var(--line);background:white;border-radius:12px;padding:11px}.signal b{font-size:12px;display:block}.signal span{font-size:11px;color:var(--muted)}
+.signal.observed{border-color:#bcdccc;background:#f2faf6}.req-list{margin:10px 0 0;padding-left:20px;color:#465a52;font-size:13px}.req-list li{margin:5px 0}
+.method-note{background:#fff7e5;border:1px solid #ead9aa;padding:13px;border-radius:12px;font-size:12px;color:#654f1d;margin-top:14px}
+@media(max-width:560px){.signal-grid{grid-template-columns:1fr}}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
@@ -145,8 +166,16 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 
 <section id="workspace"><div class="wrap"><div class="kicker">Live workspace</div><h2 class="section-title">Turn a report into an auditable evidence record.</h2><p class="section-sub">Paste scientific report text. EvidenceOS will extract what it can support, reconstruct sample structure, map results and flag inconsistencies. The alpha intentionally leaves unsupported fields unresolved.</p><div class="workspace"><div class="panel form"><h3>Study input</h3><div class="muted">Plain-text report extraction</div><div class="field"><label>Report ID</label><input id="rid" value="RCT-001"></div><div class="field"><label>Study title</label><input id="ttl" placeholder="Paste the study title"></div><div class="field"><label>Report text</label><textarea id="txt" placeholder="Paste Methods, Results, tables converted to text, or the relevant full-text sections..."></textarea></div><div class="actions"><button class="secondary" onclick="demo()">Load demo</button><button id="runBtn" class="primary" onclick="run()">Extract evidence</button></div><div id="err" class="muted" style="margin-top:12px;color:#913f34"></div></div><div class="panel results" id="results"><div class="empty"><div><div class="empty-icon">⌁</div><strong>Your evidence record will appear here.</strong><div class="muted" style="max-width:370px;margin:7px auto">EvidenceOS separates what is reported, what is derived and what remains uncertain.</div></div></div></div></div></div></section>
 
-<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Structured Extraction</h3><p>Sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Experimental</span><h3>Body of Evidence</h3><p>Groups compatible results into claims without collapsing studies, outcomes or timepoints.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
+<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Experimental</span><h3>Body of Evidence</h3><p>Groups compatible results into claims without collapsing studies, outcomes or timepoints.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
 </main>
+
+<div id="studyDrawer" class="study-drawer" onclick="drawerBackdrop(event)">
+  <aside class="drawer-panel">
+    <div class="drawer-top"><div><div class="kicker">Study Workspace</div><h2 id="drawerTitle" style="margin:3px 0 0;font-size:24px;line-height:1.15"></h2></div><button class="close-btn" onclick="closeStudy()">×</button></div>
+    <div id="drawerBody"></div>
+  </aside>
+</div>
+
 
 <script>
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -189,9 +218,53 @@ function renderPaperList(items,filter){
    const p=x.record||{}, e=x.eligibility||{}, d=x.design||{};
    const db=(p.source_databases||[]).map(s=>`<span class="db">${esc(s)}</span>`).join('');
    const ident=[p.year,p.journal,p.pmid?`PMID ${p.pmid}`:'',p.doi?`DOI ${p.doi}`:''].filter(Boolean).join(' · ');
-   return `<div class="paper" data-elig="${esc(e.overall)}"><div class="paper-head"><div style="min-width:0"><div>${db}</div><div class="paper-title">${esc(p.title)}</div></div><span class="elig ${esc(e.overall)}">${esc(e.overall||'uncertain')}</span></div><div class="design">${esc(d.final_label||'uncertain design')} · confidence ${Math.round((d.confidence||0)*100)}%</div><div class="paper-meta">${esc(ident)}</div>${p.abstract?`<div class="paper-abstract">${esc(p.abstract)}</div>`:''}<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Why this classification?</summary><div class="muted" style="margin-top:6px">${esc(e.exclusion_reason||((e.dimensions||[]).map(y=>`${y.dimension}: ${y.judgement}`).join(' · '))||'No rationale available.')}</div></details></div>`;
+   return `<div class="paper" data-elig="${esc(e.overall)}"><div class="paper-head"><div style="min-width:0"><div>${db}</div><div class="paper-title">${esc(p.title)}</div></div><span class="elig ${esc(e.overall)}">${esc(e.overall||'uncertain')}</span></div><div class="design">${esc(d.final_label||'uncertain design')} · confidence ${Math.round((d.confidence||0)*100)}%</div><div class="paper-meta">${esc(ident)}</div>${p.abstract?`<div class="paper-abstract">${esc(p.abstract)}</div>`:''}<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Why this classification?</summary><div class="muted" style="margin-top:6px">${esc(e.exclusion_reason||((e.dimensions||[]).map(y=>`${y.dimension}: ${y.judgement}`).join(' · '))||'No rationale available.')}</div></details><div class="workspace-action"><button class="small-btn" onclick="openStudyById('${esc(p.record_id)}')">Open Study Workspace →</button></div></div>`;
  }).join('')||'<div class="record muted">No records in this category.</div>';
 }
+
+function openStudyById(recordId){
+ const item=(window._eosIntel||[]).find(x=>x.record?.record_id===recordId);
+ if(!item)return;
+ openStudyWorkspace(item);
+}
+async function openStudyWorkspace(item){
+ const drawer=document.getElementById('studyDrawer'), body=document.getElementById('drawerBody');
+ document.getElementById('drawerTitle').textContent=item.record?.title||'Study';
+ drawer.classList.add('open');document.body.style.overflow='hidden';
+ body.innerHTML='<div class="empty" style="height:250px"><div><span class="spinner" style="border-color:#173f3544;border-top-color:#173f35"></span><div class="muted">Building appraisal scaffold…</div></div></div>';
+ try{
+   const r=await fetch('/v1/study-workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({record:item.record,design:item.design,eligibility:item.eligibility})});
+   const raw=await r.text();let data=null;try{data=JSON.parse(raw)}catch(_){}
+   if(!r.ok)throw new Error(data?.detail||`Study workspace failed (HTTP ${r.status})`);
+   renderStudyWorkspace(data);
+ }catch(e){body.innerHTML=`<div class="record" style="color:#913f34">${esc(e.message)}</div>`}
+}
+function renderStudyWorkspace(d){
+ const p=d.record||{}, design=d.design||{}, elig=d.eligibility||{};
+ const meta=[p.year,p.journal,p.pmid?`PMID ${p.pmid}`:'',p.doi?`DOI ${p.doi}`:''].filter(Boolean).join(' · ');
+ const signals=(d.observed_signals||[]).map(s=>`<div class="signal ${s.status==='observed'?'observed':''}"><b>${esc(s.signal)}</b><span>${s.status==='observed'?'Observed in title/abstract':'Not observed in abstract'}${s.evidence?` · “${esc(s.evidence)}”`:''}</span></div>`).join('');
+ const dims=(elig.dimensions||[]).map(x=>`<div class="row"><span>${esc(x.dimension)}</span><div><b>${esc(x.judgement)}</b><div class="muted">${esc(x.rationale||'')}</div></div></div>`).join('');
+ const req=(d.required_full_text_information||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+ document.getElementById('drawerBody').innerHTML=`
+ <div class="paper-meta" style="margin-top:14px">${esc(meta)}</div>
+ <div class="summary" style="grid-template-columns:repeat(3,1fr)">
+   <div class="stat"><strong>${esc(design.final_label||'uncertain')}</strong><small>Predicted design</small></div>
+   <div class="stat"><strong>${esc(elig.overall||'uncertain')}</strong><small>Eligibility signal</small></div>
+   <div class="stat"><strong>${esc(d.appraisal_tool)}</strong><small>Appraisal framework</small></div>
+ </div>
+ <div class="block"><div class="block-head"><h4>Appraisal readiness</h4><b>${esc(d.readiness_score)}%</b></div><div class="readiness"><span style="width:${Number(d.readiness_score)||0}%"></span></div><div class="muted">This measures information available for appraisal, not study quality.</div></div>
+ <div class="block"><h4>Signals observable from PubMed</h4><div class="signal-grid" style="margin-top:10px">${signals}</div></div>
+ <div class="block"><h4>Eligibility against your PICO</h4><div class="record">${dims||'<span class="muted">No dimension-level rationale available.</span>'}</div></div>
+ <div class="block"><h4>What EvidenceOS still needs</h4><ul class="req-list">${req}</ul><div class="method-note">${esc(d.methodological_note)}</div></div>
+ ${p.abstract?`<div class="block"><h4>Abstract</h4><div class="record">${esc(p.abstract)}</div></div>`:''}
+ <div class="block"><div class="actions"><button class="primary" onclick="sendStudyToFullText(${JSON.stringify(JSON.stringify({record_id:p.record_id,title:p.title}))})">Continue to full-text analysis →</button></div><div class="muted" style="margin-top:8px">Paste the full report in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.</div></div>`;
+}
+function sendStudyToFullText(serialized){
+ const x=JSON.parse(serialized);rid.value=x.record_id||'STUDY';ttl.value=x.title||'';closeStudy();document.getElementById('workspace').scrollIntoView({behavior:'smooth'});txt.focus();
+}
+function closeStudy(){document.getElementById('studyDrawer').classList.remove('open');document.body.style.overflow=''}
+function drawerBackdrop(e){if(e.target.id==='studyDrawer')closeStudy()}
+
 function filterPapers(filter,btn){
  document.querySelectorAll('.filterbar button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
  renderPaperList(window._eosIntel||[],filter);
