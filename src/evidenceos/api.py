@@ -75,7 +75,22 @@ async def extract_pdf(
                 detail=f"Extracted PDF text exceeds EVIDENCEOS_MAX_INPUT_CHARS={settings.max_input_chars}.",
             )
         record = ExtractionEngineV1().extract(report_id, title, text)
-        trust = assess_full_text(report_id, title, text)
+        try:
+            trust = assess_full_text(report_id, title, text)
+        except Exception as appraisal_exc:
+            trust = UniversalTrustAssessment(
+                design="other",
+                framework="Appraisal unavailable",
+                status="appraisal_error",
+                headline="Full-text extraction succeeded; appraisal was not completed",
+                explanation=(
+                    "EvidenceOS extracted the PDF successfully, but the methodological "
+                    "appraisal layer encountered an internal error. The evidence record "
+                    "is still available and no trust judgement has been invented."
+                ),
+                overall_judgement="unresolved",
+                limitations=[str(appraisal_exc)[:300]],
+            )
         return PdfExtractResponse(
             record=record,
             filename=filename,
