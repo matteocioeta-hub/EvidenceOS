@@ -267,13 +267,14 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function badge(status){const s=status||'unverified';return `<span class="status ${esc(s)}">${esc(s)}</span>`}
 function fieldRow(label,f){if(!f)return '';let val=f.value;if(typeof val==='object')val=JSON.stringify(val);return `<div class="row"><span>${esc(label)}</span><div><b>${esc(val)}</b> ${f.unit?`<span class="muted">${esc(f.unit)}</span>`:''} ${badge(f.status)}${f.derivation?`<div class="muted">Derived: ${esc(f.derivation)}</div>`:''}</div></div>`}
-function render(rec){
+function render(rec, detectedDesign=null){
  const samples=rec.sample_sets||[], results=rec.results||[], alarms=rec.alarms||[];
  const grounded=samples.filter(s=>s.total_n&&['verified','derived'].includes(s.total_n.status)).length;
  const html=[];
  html.push(`<div class="block-head"><div><div class="kicker">Universal Evidence Record</div><h3 style="font-size:24px;margin:3px 0 0">${esc(rec.title)}</h3><div class="muted">${esc(rec.report_id)}</div></div>${badge(rec.study_design?.status||'unverified')}</div>`);
  html.push(`<div class="summary"><div class="stat"><strong>${samples.length}</strong><small>Sample sets</small></div><div class="stat"><strong>${results.length}</strong><small>Results mapped</small></div><div class="stat"><strong>${alarms.length}</strong><small>Consistency alarms</small></div><div class="stat"><strong>${grounded}</strong><small>Grounded sample fields</small></div></div>`);
- html.push(`<div class="block"><h4>Study identity</h4><div class="record">${fieldRow('Design',rec.study_design)}${fieldRow('Trial registration',rec.trial_registration)}</div></div>`);
+ const designField=detectedDesign?{value:detectedDesign,status:'derived',derivation:'Detected from uploaded full-text PDF by the EvidenceOS design router.'}:rec.study_design;
+ html.push(`<div class="block"><h4>Study identity</h4><div class="record">${fieldRow('Design',designField)}${fieldRow('Trial registration',rec.trial_registration)}</div></div>`);
  html.push(`<div class="block"><h4>Sample structure</h4>${samples.length?samples.map(s=>`<div class="record"><div class="block-head"><b>${esc(s.role)}</b>${s.total_n?badge(s.total_n.status):''}</div>${fieldRow('Total N',s.total_n)}${(s.arms||[]).map(a=>`<div class="row"><span>${esc(a.label)}</span><div>${a.n?`<b>n=${esc(a.n.value)}</b> ${badge(a.n.status)}`:''}</div></div>`).join('')}</div>`).join(''):'<div class="record muted">No sample structure could be verified.</div>'}</div>`);
  html.push(`<div class="block"><h4>Outcome results</h4>${results.length?results.map(r=>`<div class="record"><div class="block-head"><b>${esc(r.outcome?.value||'Outcome')}</b>${r.direction?badge(r.direction.status):''}</div>${fieldRow('Instrument',r.instrument)}${fieldRow('Timepoint',r.timepoint)}${fieldRow('Effect measure',r.effect_measure)}${fieldRow('Estimate',r.estimate)}${fieldRow('95% CI lower',r.ci_lower)}${fieldRow('95% CI upper',r.ci_upper)}${fieldRow('p value',r.p_value)}${fieldRow('Direction',r.direction)}</div>`).join(''):'<div class="record muted">No result format was confidently mapped. Unsupported formats remain unresolved rather than guessed.</div>'}</div>`);
  html.push(`<div class="block"><h4>Epistemic alarms</h4>${alarms.length?alarms.map(a=>`<div class="alarm ${esc(a.severity)}"><b>${esc(a.code)}</b><div>${esc(a.message)}</div></div>`).join(''):'<div class="record muted">No internal consistency alarm was triggered for the extracted fields.</div>'}</div>`);
@@ -439,7 +440,7 @@ async function runPdf(){
      throw new Error(raw.slice(0,300)||`PDF analysis failed (HTTP ${response.status})`);
    }
    if(!data?.record)throw new Error('EvidenceOS returned an invalid PDF analysis response.');
-   render(data.record);
+   render(data.record,data.trust_assessment?.design||null);
    const results=document.getElementById('results');
    results.insertAdjacentHTML('beforeend',renderTrustAssessment(data.trust_assessment));
    const meta=document.createElement('div');
