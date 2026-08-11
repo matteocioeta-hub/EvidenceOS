@@ -89,6 +89,16 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .db{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;background:#eaf2ee;color:#315e50;padding:4px 7px;border-radius:7px;margin-right:5px}
 .pico{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}.pico div{padding:11px;background:#f4f8f6;border-radius:12px}.pico b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--brand2);margin-bottom:4px}.pico span{font-size:12px}
 
+
+.intel-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:12px 0 18px}
+.intel-card{padding:12px;border-radius:13px;border:1px solid var(--line);background:#fafcfb}
+.intel-card b{font-size:20px;display:block}.intel-card span{font-size:11px;color:var(--muted)}
+.paper-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.elig{font-size:10px;padding:4px 7px;border-radius:7px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.elig.include{background:#dff5e8;color:#236846}.elig.indirect{background:#fff1cc;color:#745512}.elig.uncertain{background:#edf0f2;color:#4c5b63}.elig.exclude{background:#f4e8e5;color:#7c443b}
+.design{font-size:11px;color:var(--brand2);font-weight:700;margin-top:5px}
+.filterbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 14px}.filterbar button{padding:7px 10px;font-size:11px;background:#edf3ef;color:var(--brand)}.filterbar button.active{background:var(--brand);color:white}
+.linkbox{background:#f7faf8;border:1px dashed #cfdcd5;padding:12px;border-radius:12px;margin-top:10px;font-size:12px}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
@@ -147,15 +157,28 @@ function questionDemo(){
  qcomp.value='Usual care';qout.value='Pain, fatigue';qtime.value='12 weeks';qmax.value=12;
 }
 function renderSearch(data){
- const q=data.structured_question, r=data.retrieval||{}, records=r.records||[], strategies=r.strategies||[];
+ const q=data.structured_question, r=data.retrieval||{}, intel=data.study_intelligence||{};
+ const items=intel.study_intelligence||[], strategies=r.strategies||[], links=intel.study_links||[];
+ window._eosIntel=items;
  const root=document.getElementById('searchResults');
  const pico=`<div class="pico"><div><b>Population</b><span>${esc(q.population?.label)}</span></div><div><b>Intervention</b><span>${esc(q.intervention?.label)}</span></div><div><b>Comparator</b><span>${esc(q.comparator?.label)}</span></div><div><b>Outcomes</b><span>${esc((q.outcomes||[]).map(x=>x.label).join(', '))}</span></div></div>`;
- const papers=records.slice(0,30).map(p=>{
-   const db=(p.source_databases||[]).map(x=>`<span class="db">${esc(x)}</span>`).join('');
+ const filters=`<div class="filterbar"><button class="active" onclick="filterPapers('all',this)">All</button><button onclick="filterPapers('include',this)">Likely relevant</button><button onclick="filterPapers('indirect',this)">Indirect</button><button onclick="filterPapers('uncertain',this)">Uncertain</button><button onclick="filterPapers('exclude',this)">Excluded</button></div>`;
+ root.innerHTML=`<div class="panel" style="padding:22px"><div class="block-head"><div><div class="kicker">Evidence Map + Study Intelligence</div><h3 style="font-size:24px;margin:3px 0">${esc(q.original_text)}</h3></div><span class="status verified">live retrieval</span></div>${pico}<div class="summary"><div class="stat"><strong>${r.records_before_deduplication??0}</strong><small>Records retrieved</small></div><div class="stat"><strong>${r.records_after_deduplication??0}</strong><small>Unique records</small></div><div class="stat"><strong>${strategies.length}</strong><small>Search strategies</small></div><div class="stat"><strong>${links.length}</strong><small>Report links detected</small></div></div><div class="intel-summary"><div class="intel-card"><b>${intel.likely_include??0}</b><span>Likely relevant</span></div><div class="intel-card"><b>${intel.indirect??0}</b><span>Indirect</span></div><div class="intel-card"><b>${intel.uncertain??0}</b><span>Uncertain</span></div><div class="intel-card"><b>${intel.excluded??0}</b><span>Excluded</span></div></div><div class="record" style="margin-bottom:14px"><b>Interpretation boundary</b><div class="muted">Eligibility and design labels are machine-assisted screening signals, not final systematic-review inclusion decisions. Full-text verification remains required.</div></div>${filters}<div id="paperList" class="record-list"></div>${links.length?`<div class="linkbox"><b>Potential multiple-report links</b><div>${links.map(l=>`${esc(l.study_id)}: ${esc((l.report_ids||[]).join(', '))}`).join('<br>')}</div></div>`:''}<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">Search strategies</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f7f9f8;padding:14px;border-radius:12px">${esc(JSON.stringify(strategies,null,2))}</pre></details></div>`;
+ renderPaperList(items,'all');
+}
+function renderPaperList(items,filter){
+ const list=document.getElementById('paperList'); if(!list)return;
+ const filtered=filter==='all'?items:items.filter(x=>x.eligibility?.overall===filter);
+ list.innerHTML=filtered.slice(0,40).map(x=>{
+   const p=x.record||{}, e=x.eligibility||{}, d=x.design||{};
+   const db=(p.source_databases||[]).map(s=>`<span class="db">${esc(s)}</span>`).join('');
    const ident=[p.year,p.journal,p.pmid?`PMID ${p.pmid}`:'',p.doi?`DOI ${p.doi}`:''].filter(Boolean).join(' · ');
-   return `<div class="paper"><div>${db}</div><div class="paper-title">${esc(p.title)}</div><div class="paper-meta">${esc(ident)}</div>${p.abstract?`<div class="paper-abstract">${esc(p.abstract)}</div>`:''}</div>`;
- }).join('');
- root.innerHTML=`<div class="panel" style="padding:22px"><div class="block-head"><div><div class="kicker">Evidence Map</div><h3 style="font-size:24px;margin:3px 0">${esc(q.original_text)}</h3></div><span class="status verified">live retrieval</span></div>${pico}<div class="summary"><div class="stat"><strong>${r.records_before_deduplication??0}</strong><small>Records retrieved</small></div><div class="stat"><strong>${r.records_after_deduplication??0}</strong><small>Unique records</small></div><div class="stat"><strong>${strategies.length}</strong><small>Search strategies</small></div><div class="stat"><strong>2</strong><small>Databases</small></div></div><div class="record" style="margin-bottom:14px"><b>Interpretation boundary</b><div class="muted">This is a discovery map, not yet a pooled conclusion. Certainty, risk of bias and gap claims require full-text evidence processing.</div></div><div class="record-list">${papers||'<div class="record muted">No records returned.</div>'}</div><details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">Search strategies</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f7f9f8;padding:14px;border-radius:12px">${esc(JSON.stringify(strategies,null,2))}</pre></details></div>`;
+   return `<div class="paper" data-elig="${esc(e.overall)}"><div class="paper-head"><div style="min-width:0"><div>${db}</div><div class="paper-title">${esc(p.title)}</div></div><span class="elig ${esc(e.overall)}">${esc(e.overall||'uncertain')}</span></div><div class="design">${esc(d.final_label||'uncertain design')} · confidence ${Math.round((d.confidence||0)*100)}%</div><div class="paper-meta">${esc(ident)}</div>${p.abstract?`<div class="paper-abstract">${esc(p.abstract)}</div>`:''}<details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Why this classification?</summary><div class="muted" style="margin-top:6px">${esc(e.exclusion_reason||((e.dimensions||[]).map(y=>`${y.dimension}: ${y.judgement}`).join(' · '))||'No rationale available.')}</div></details></div>`;
+ }).join('')||'<div class="record muted">No records in this category.</div>';
+}
+function filterPapers(filter,btn){
+ document.querySelectorAll('.filterbar button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+ renderPaperList(window._eosIntel||[],filter);
 }
 async function searchEvidence(){
  const btn=document.getElementById('searchBtn'),err=document.getElementById('searchErr');err.textContent='';
