@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,7 @@ from .extraction_engine_v1 import ExtractionEngineV1
 from .evidence_schema_v1 import UniversalEvidenceRecord
 from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guided_search
 from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, build_study_workspace
+from .pdf_ingest import extract_pdf_text, PdfIngestError
 
 app = FastAPI(
     title="EvidenceOS",
@@ -24,6 +25,13 @@ class ExtractRequest(BaseModel):
 
 class ExtractResponse(BaseModel):
     record: UniversalEvidenceRecord
+
+
+class PdfExtractResponse(BaseModel):
+    record: UniversalEvidenceRecord
+    filename: str
+    pages: int
+    extracted_characters: int
 
 
 @app.get("/health")
@@ -43,6 +51,38 @@ def extract(request: ExtractRequest):
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/extract-pdf", response_model=PdfExtractResponse)
+async def extract_pdf(
+    report_id: str = Form(...),
+    title: str = Form(...),
+    file: UploadFile = File(...),
+):
+    filename = file.filename or "full_text.pdf"
+
+    if file.content_type not in {"application/pdf", "application/x-pdf", "application/octet-stream"}:
+        raise HTTPException(status_code=415, detail="Only PDF files are supported.")
+
+    try:
+        data = await file.read()
+        text, pages = extract_pdf_text(data)
+        if len(text) > settings.max_input_chars:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Extracted PDF text exceeds EVIDENCEOS_MAX_INPUT_CHARS={settings.max_input_chars}.",
+            )
+        record = ExtractionEngineV1().extract(report_id, title, text)
+        return PdfExtractResponse(
+            record=record,
+            filename=filename,
+            pages=pages,
+            extracted_characters=len(text),
+        )
+    except PdfIngestError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        await file.close()
 
 
 @app.post("/v1/research-search", response_model=GuidedSearchResponse)
@@ -128,6 +168,14 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .method-note{background:#fff7e5;border:1px solid #ead9aa;padding:13px;border-radius:12px;font-size:12px;color:#654f1d;margin-top:14px}
 @media(max-width:560px){.signal-grid{grid-template-columns:1fr}}
 
+
+.upload-zone{border:1.5px dashed #b7c9c0;border-radius:16px;padding:22px;text-align:center;background:#fafcfb;cursor:pointer;transition:.15s}
+.upload-zone:hover,.upload-zone.drag{border-color:#5e8c79;background:#f2f8f5}
+.upload-zone input{display:none}.upload-icon{width:46px;height:46px;border-radius:14px;background:#eaf2ee;display:grid;place-items:center;margin:0 auto 9px;font-size:20px;color:var(--brand)}
+.upload-zone b{display:block;font-size:14px}.upload-zone span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+.file-pill{display:none;margin-top:10px;padding:9px 11px;border-radius:10px;background:#eaf2ee;color:var(--brand);font-size:12px;font-weight:700;text-align:left}
+.pdf-meta{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.pdf-meta span{background:#edf3ef;padding:5px 8px;border-radius:8px;font-size:11px;color:var(--brand)}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
@@ -164,7 +212,15 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 <div id="searchResults" class="search-results"></div>
 </div></section>
 
-<section id="workspace"><div class="wrap"><div class="kicker">Live workspace</div><h2 class="section-title">Turn a report into an auditable evidence record.</h2><p class="section-sub">Paste scientific report text. EvidenceOS will extract what it can support, reconstruct sample structure, map results and flag inconsistencies. The alpha intentionally leaves unsupported fields unresolved.</p><div class="workspace"><div class="panel form"><h3>Study input</h3><div class="muted">Plain-text report extraction</div><div class="field"><label>Report ID</label><input id="rid" value="RCT-001"></div><div class="field"><label>Study title</label><input id="ttl" placeholder="Paste the study title"></div><div class="field"><label>Report text</label><textarea id="txt" placeholder="Paste Methods, Results, tables converted to text, or the relevant full-text sections..."></textarea></div><div class="actions"><button class="secondary" onclick="demo()">Load demo</button><button id="runBtn" class="primary" onclick="run()">Extract evidence</button></div><div id="err" class="muted" style="margin-top:12px;color:#913f34"></div></div><div class="panel results" id="results"><div class="empty"><div><div class="empty-icon">⌁</div><strong>Your evidence record will appear here.</strong><div class="muted" style="max-width:370px;margin:7px auto">EvidenceOS separates what is reported, what is derived and what remains uncertain.</div></div></div></div></div></div></section>
+<section id="workspace"><div class="wrap"><div class="kicker">Live workspace</div><h2 class="section-title">Turn a report into an auditable evidence record.</h2><p class="section-sub">Upload the full-text PDF. EvidenceOS extracts machine-readable text, reconstructs sample structure, maps results and flags inconsistencies. Unsupported fields remain unresolved.</p><div class="workspace"><div class="panel form"><h3>Full-text PDF</h3><div class="muted">PDF-only study extraction</div><div class="field"><label>Report ID</label><input id="rid" value="RCT-001"></div><div class="field"><label>Study title</label><input id="ttl" placeholder="Paste the study title"></div><div class="field"><label>Full-text PDF</label>
+<label class="upload-zone" id="pdfDrop" for="pdfFile">
+  <input id="pdfFile" type="file" accept="application/pdf,.pdf" onchange="pdfSelected()">
+  <span class="upload-icon">PDF</span>
+  <b>Choose full-text PDF</b>
+  <span>or drag and drop a PDF here · max 20 MB</span>
+</label>
+<div id="filePill" class="file-pill"></div>
+</div><div class="actions"><button id="runBtn" class="primary" onclick="runPdf()">Analyse full-text PDF</button></div><div id="err" class="muted" style="margin-top:12px;color:#913f34"></div></div><div class="panel results" id="results"><div class="empty"><div><div class="empty-icon">⌁</div><strong>Your full-text evidence record will appear here.</strong><div class="muted" style="max-width:370px;margin:7px auto">EvidenceOS separates what is reported, what is derived and what remains uncertain.</div></div></div></div></div></div></section>
 
 <section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Experimental</span><h3>Body of Evidence</h3><p>Groups compatible results into claims without collapsing studies, outcomes or timepoints.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Experimental</span><h3>Gap Falsification</h3><p>Searches for literature that could disprove an apparent research gap before calling it novel.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
 </main>
@@ -257,10 +313,13 @@ function renderStudyWorkspace(d){
  <div class="block"><h4>Eligibility against your PICO</h4><div class="record">${dims||'<span class="muted">No dimension-level rationale available.</span>'}</div></div>
  <div class="block"><h4>What EvidenceOS still needs</h4><ul class="req-list">${req}</ul><div class="method-note">${esc(d.methodological_note)}</div></div>
  ${p.abstract?`<div class="block"><h4>Abstract</h4><div class="record">${esc(p.abstract)}</div></div>`:''}
- <div class="block"><div class="actions"><button class="primary" onclick="sendStudyToFullText(${JSON.stringify(JSON.stringify({record_id:p.record_id,title:p.title}))})">Continue to full-text analysis →</button></div><div class="muted" style="margin-top:8px">Paste the full report in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.</div></div>`;
+ <div class="block"><div class="actions"><button class="primary" onclick="sendStudyToFullText(${JSON.stringify(JSON.stringify({record_id:p.record_id,title:p.title}))})">Continue to full-text analysis →</button></div><div class="muted" style="margin-top:8px">Upload the full-text PDF in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.</div></div>`;
 }
 function sendStudyToFullText(serialized){
- const x=JSON.parse(serialized);rid.value=x.record_id||'STUDY';ttl.value=x.title||'';closeStudy();document.getElementById('workspace').scrollIntoView({behavior:'smooth'});txt.focus();
+ const x=JSON.parse(serialized);
+ rid.value=x.record_id||'STUDY';ttl.value=x.title||'';
+ closeStudy();document.getElementById('workspace').scrollIntoView({behavior:'smooth'});
+ setTimeout(()=>document.getElementById('pdfDrop').click(),450);
 }
 function closeStudy(){document.getElementById('studyDrawer').classList.remove('open');document.body.style.overflow=''}
 function drawerBackdrop(e){if(e.target.id==='studyDrawer')closeStudy()}
@@ -300,35 +359,56 @@ async function searchEvidence(){
  finally{btn.disabled=false;btn.textContent='Search PubMed'}
 }
 
-async function run(){
- const btn=document.getElementById('runBtn'),err=document.getElementById('err');err.textContent='';
- if(!ttl.value.trim()||!txt.value.trim()){err.textContent='Add a study title and report text.';return}
- btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Extracting';
+function pdfSelected(){
+ const f=document.getElementById('pdfFile').files[0];
+ const pill=document.getElementById('filePill');
+ if(!f){pill.style.display='none';pill.textContent='';return}
+ if(!f.name.toLowerCase().endsWith('.pdf')){
+   pill.style.display='block';pill.textContent='Only PDF files are supported.';return
+ }
+ pill.style.display='block';
+ pill.textContent=`${f.name} · ${(f.size/1024/1024).toFixed(2)} MB`;
+}
+async function runPdf(){
+ const btn=document.getElementById('runBtn'),err=document.getElementById('err');
+ const f=document.getElementById('pdfFile').files[0];err.textContent='';
+ if(!ttl.value.trim()){err.textContent='Add the study title.';return}
+ if(!f){err.textContent='Choose the full-text PDF.';return}
+ if(!f.name.toLowerCase().endsWith('.pdf')){err.textContent='Only PDF files are supported.';return}
+ const form=new FormData();
+ form.append('report_id',rid.value||'STUDY');
+ form.append('title',ttl.value);
+ form.append('file',f);
+ btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Analysing PDF';
  try{
-   const r=await fetch('/v1/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({report_id:rid.value,title:ttl.value,text:txt.value})});
-   const j=await r.json();
-   if(!r.ok)throw new Error(j.detail||'Extraction failed');
-   render(j.record);
+   const response=await fetch('/v1/extract-pdf',{method:'POST',body:form});
+   const raw=await response.text();
+   let data=null;try{data=JSON.parse(raw)}catch(_){}
+   if(!response.ok){
+     if(data?.detail)throw new Error(data.detail);
+     if(raw.trim().startsWith('<'))throw new Error(`EvidenceOS backend returned an HTML error page (HTTP ${response.status}).`);
+     throw new Error(raw.slice(0,300)||`PDF analysis failed (HTTP ${response.status})`);
+   }
+   if(!data?.record)throw new Error('EvidenceOS returned an invalid PDF analysis response.');
+   render(data.record);
+   const results=document.getElementById('results');
+   const meta=document.createElement('div');
+   meta.className='pdf-meta';
+   meta.innerHTML=`<span>${esc(data.filename)}</span><span>${esc(data.pages)} pages</span><span>${esc(data.extracted_characters)} extracted characters</span>`;
+   results.insertBefore(meta,results.firstChild);
  }catch(e){err.textContent=e.message}
- finally{btn.disabled=false;btn.textContent='Extract evidence'}
+ finally{btn.disabled=false;btn.textContent='Analyse full-text PDF'}
 }
-function demo(){
- ttl.value='High-intensity versus moderate-intensity exercise for chronic low back pain';
- rid.value='DEMO-RCT-001';
- txt.value=`Participants with chronic nonspecific low back pain were randomly assigned to an experimental high intensity training group (HIT) or a moderate intensity training control group (MIT).
-
-Thirty-eight participants were included in the initial PRE-POST analysis, HIT n = 19 and MIT n = 19. Finally, 29 participants were included in the follow-up analysis, HIT n = 16 and MIT n = 13.
-
-Disability, MODI %:
-HIT PRE 20.9 (8.7), POST 7.5 (5.4), FU 7.9 (8.4).
-MIT PRE 16.2 (8.2), POST 10.6 (3.0), FU 10.4 (9.6).
-Difference of deltas PRE to FU between HIT and MIT: 3.6, significant in favour of HIT.
-
-Pain intensity, NPRS 0-10:
-HIT PRE 5.6 (1.5), POST 2.6 (1.3), FU 2.3 (2.1).
-MIT PRE 5.0 (1.7), POST 3.5 (1.7), FU 2.3 (1.1).
-Difference of deltas PRE to FU between HIT and MIT: 0.5, not significant.`;
-}
+const drop=document.getElementById('pdfDrop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
+drop.addEventListener('drop',e=>{
+ const files=e.dataTransfer.files;
+ if(files&&files[0]){
+   const dt=new DataTransfer();dt.items.add(files[0]);
+   document.getElementById('pdfFile').files=dt.files;pdfSelected();
+ }
+});
 </script>
 </body>
 </html>""")
