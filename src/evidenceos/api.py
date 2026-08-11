@@ -12,6 +12,7 @@ from .pdf_ingest import extract_pdf_text, PdfIngestError
 from .universal_trust_engine import UniversalTrustAssessment, assess_full_text
 from .evidence_workspace import SynthesisRequest, SynthesisResponse, synthesize
 from .gap_falsification_live import GapFalsificationRequest, GapFalsificationResponse, falsify_gap
+from .conclusion_challenge_live import ConclusionChallengeRequest, ConclusionChallengeResponse, challenge_conclusion
 
 app = FastAPI(
     title="EvidenceOS",
@@ -118,6 +119,14 @@ def synthesize_evidence(request: SynthesisRequest):
 def falsify_gap_endpoint(request: GapFalsificationRequest):
     try:
         return falsify_gap(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/challenge-conclusion", response_model=ConclusionChallengeResponse)
+def challenge_conclusion_endpoint(request: ConclusionChallengeRequest):
+    try:
+        return challenge_conclusion(request)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -241,6 +250,15 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .verdict.rejected{background:#e8f4ec;color:#276344}.verdict.refined{background:#fff1cc;color:#73530d}.verdict.not_falsified{background:#edf0f2;color:#45565d}.verdict.unresolved{background:#f4e9e6;color:#70483f}
 .antigap-result{border-top:1px solid var(--line);padding:9px 0}.antigap-result:first-child{border-top:0}.antigap-class{font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.06em}
 .antigap-class.direct{color:#276344}.antigap-class.partial{color:#8a6511}.antigap-class.indirect{color:#6c7477}
+
+
+.challenge-box{margin-top:12px;border:1px solid #cfdcd5;background:#f8fbf9;border-radius:14px;padding:14px}
+.challenge-dim{border-top:1px solid var(--line);padding:10px 0}.challenge-dim:first-child{border-top:0}
+.sev{display:inline-flex;padding:4px 7px;border-radius:7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.sev.none{background:#e9f4ed;color:#276344}.sev.minor{background:#fff6dc;color:#795c14}.sev.material{background:#ffe9dc;color:#8a4f23}.sev.critical{background:#ffe2de;color:#8c3529}.sev.unresolved{background:#edf0f2;color:#58676d}
+.challenge-record{padding:10px 0;border-top:1px solid var(--line)}.challenge-record:first-child{border-top:0}
+.challenge-signal{font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.06em}
+.challenge-signal.potentially_contradictory{color:#973b30}.challenge-signal.potentially_supportive{color:#276344}.challenge-signal.neutral_or_unclear{color:#6c7477}
 
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
@@ -510,11 +528,39 @@ async function falsifyGap(g){
  }catch(e){root.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`}
 }
 
+
+function safeId(x){return String(x||'outcome').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,80)}
+async function challengeOutcome(o){
+ const root=document.getElementById(`challenge-${safeId(o.outcome)}`);
+ if(!root)return;
+ const population=document.getElementById('qpop')?.value?.trim()||'unspecified population';
+ const intervention=document.getElementById('qint')?.value?.trim()||'unspecified intervention';
+ const comparator=document.getElementById('qcomp')?.value?.trim()||'';
+ const timepoint=document.getElementById('qtime')?.value?.trim()||'';
+ root.innerHTML='<div class="challenge-box muted"><span class="spinner" style="border-color:#173f3544;border-top-color:#173f35"></span>Challenging the conclusion against the stored corpus and PubMed…</div>';
+ try{
+   const r=await fetch('/v1/challenge-conclusion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+     outcome:o.outcome,
+     dominant_direction:o.dominant_direction,
+     directions:o.directions||{},
+     studies_in_body:o.studies,
+     methodological_support:o.methodological_support,
+     population,intervention,comparator,timepoint,max_results:15
+   })});
+   const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
+   if(!r.ok)throw new Error(d?.detail||`Conclusion challenge failed (HTTP ${r.status})`);
+   const dims=(d.dimensions||[]).map(x=>`<div class="challenge-dim"><div class="block-head"><b>${esc(x.dimension.replaceAll('_',' '))}</b><span class="sev ${esc(x.severity)}">${esc(x.severity)}</span></div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
+   const records=(d.records||[]).slice(0,10).map(x=>`<div class="challenge-record"><div class="block-head"><span class="challenge-signal ${esc(x.challenge_signal)}">${esc(x.challenge_signal.replaceAll('_',' '))}</span><span class="db">${esc(x.evidence_level)}</span></div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
+   const verdictClass=d.verdict==='materially_weakened'?'critical':d.verdict==='survived'?'verified':'warning';
+   root.innerHTML=`<div class="challenge-box"><div class="block-head"><div><div class="kicker">Challenge verdict</div><b>${esc(d.verdict.replaceAll('_',' '))}</b></div><span class="status ${verdictClass}">${esc(d.verdict)}</span></div><div class="alarm info" style="margin-top:10px"><b>Revised conclusion</b><div>${esc(d.revised_conclusion)}</div></div><div style="margin-top:10px">${dims}</div><div class="row"><span>PubMed records examined</span><b>${d.records_examined}</b></div><div class="row"><span>Potential contradictions</span><b>${d.potential_contradictions}</b></div><div class="row"><span>Higher-level challenges</span><b>${d.higher_level_challenges}</b></div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">External challenge provenance</summary><div class="muted" style="margin-top:7px"><b>Adversarial PubMed query</b><br>${esc(d.external_query)}</div><div style="margin-top:8px">${records||'<span class="muted">No records returned.</span>'}</div><div class="method-note">${esc(d.interpretation_boundary)}</div></details></div>`;
+ }catch(e){root.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`}
+}
+
 function renderSynthesis(d){
  const c=d.confidence||{};
  const outcomes=(d.outcomes||[]).map(o=>{
    const chips=Object.entries(o.directions||{}).map(([k,v])=>`<span class="direction-chip">${esc(k)}: ${v}</span>`).join('');
-   return `<div class="outcome-body"><div class="block-head"><div><b>${esc(o.outcome)}</b><div class="muted">${o.studies} study/studies · ${o.results} extracted result(s)</div></div><span class="status ${o.consistency==='consistent'?'verified':'warning'}">${esc(o.consistency)}</span></div><div class="direction-bar">${chips}</div><div class="muted" style="margin-top:8px">${esc(o.interpretation)}</div><div class="row"><span>Precision</span><b>${esc(o.precision)}</b></div><div class="row"><span>Methodological support</span><b>${esc(o.methodological_support)}</b></div></div>`;
+   return `<div class="outcome-body"><div class="block-head"><div><b>${esc(o.outcome)}</b><div class="muted">${o.studies} study/studies · ${o.results} extracted result(s)</div></div><span class="status ${o.consistency==='consistent'?'verified':'warning'}">${esc(o.consistency)}</span></div><div class="direction-bar">${chips}</div><div class="muted" style="margin-top:8px">${esc(o.interpretation)}</div><div class="row"><span>Precision</span><b>${esc(o.precision)}</b></div><div class="row"><span>Methodological support</span><b>${esc(o.methodological_support)}</b></div><div class="gap-actions"><button class="small-btn" onclick='challengeOutcome(${JSON.stringify(o)})'>Challenge this conclusion →</button><span class="muted">Try to prove the current interpretation wrong</span></div><div id="challenge-${safeId(o.outcome)}"></div></div>`;
  }).join('');
  const contradictions=(d.contradictions||[]).map(x=>`<div class="alarm warning">${esc(x)}</div>`).join('');
  const gaps=(d.gaps||[]).map(x=>`<div class="alarm info">${esc(x)}</div>`).join('');
