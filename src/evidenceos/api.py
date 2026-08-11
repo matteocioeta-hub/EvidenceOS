@@ -13,6 +13,7 @@ from .universal_trust_engine import UniversalTrustAssessment, assess_full_text
 from .evidence_workspace import SynthesisRequest, SynthesisResponse, synthesize
 from .gap_falsification_live import GapFalsificationRequest, GapFalsificationResponse, falsify_gap
 from .conclusion_challenge_live import ConclusionChallengeRequest, ConclusionChallengeResponse, challenge_conclusion
+from .candidate_intake import CandidateIntakeRequest, CandidateIntakeResponse, intake_candidate
 
 app = FastAPI(
     title="EvidenceOS",
@@ -127,6 +128,14 @@ def falsify_gap_endpoint(request: GapFalsificationRequest):
 def challenge_conclusion_endpoint(request: ConclusionChallengeRequest):
     try:
         return challenge_conclusion(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/intake-candidate", response_model=CandidateIntakeResponse)
+def intake_candidate_endpoint(request: CandidateIntakeRequest):
+    try:
+        return intake_candidate(request)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -259,6 +268,10 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .challenge-record{padding:10px 0;border-top:1px solid var(--line)}.challenge-record:first-child{border-top:0}
 .challenge-signal{font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.06em}
 .challenge-signal.potentially_contradictory{color:#973b30}.challenge-signal.potentially_supportive{color:#276344}.challenge-signal.neutral_or_unclear{color:#6c7477}
+
+
+.intake-status{margin-top:8px;padding:10px 12px;border-radius:11px;background:#f4f8f6;border:1px solid var(--line);font-size:12px}
+.intake-status.success{background:#eef8f2}.intake-status.manual{background:#fff8e8}
 
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
@@ -530,6 +543,63 @@ async function falsifyGap(g){
 
 
 function safeId(x){return String(x||'outcome').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,80)}
+
+async function intakeCandidate(candidate,button){
+ const card=button.closest('.challenge-record');
+ const slot=card?.querySelector('.intake-slot');
+ button.disabled=true;button.textContent='Checking full text…';
+ if(slot)slot.innerHTML='<div class="intake-status">Checking PMC availability and reuse status…</div>';
+ try{
+   const r=await fetch('/v1/intake-candidate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(candidate)});
+   const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
+   if(!r.ok)throw new Error(d?.detail||`Candidate intake failed (HTTP ${r.status})`);
+
+   if(d.mode==='auto_imported' && d.record && d.trust_assessment){
+     const s={
+       report_id:d.report_id,
+       title:d.title,
+       design:d.trust_assessment.design||'other',
+       framework:d.trust_assessment.framework||null,
+       trust_overall:d.trust_assessment.overall_judgement||null,
+       record:d.record,
+       trust_assessment:d.trust_assessment,
+       provenance:{source:'PMC reusable full text',pmcid:d.pmcid||null,license:d.license||null}
+     };
+     const items=getCorpus();
+     const idx=items.findIndex(x=>x.report_id===s.report_id);
+     if(idx>=0)items[idx]=s;else items.push(s);
+     setCorpus(items);
+     if(slot)slot.innerHTML=`<div class="intake-status success"><b>Added automatically.</b><br>${esc(d.message)}${d.pmcid?`<br>PMC: ${esc(d.pmcid)} · License: ${esc(d.license||'not reported')}`:''}</div>`;
+     button.textContent='Added to corpus';
+     document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});
+     setTimeout(()=>synthesizeCorpus(),650);
+     return;
+   }
+
+   window._pendingCandidate={
+     report_id:d.report_id,
+     title:d.title,
+     pmid:d.pmid||null,
+     doi:d.doi||null,
+     pmcid:d.pmcid||null,
+     license:d.license||null
+   };
+   document.getElementById('rid').value=d.report_id||'CANDIDATE';
+   document.getElementById('ttl').value=d.title||candidate.title||'';
+   if(slot)slot.innerHTML=`<div class="intake-status manual"><b>PDF required.</b><br>${esc(d.message)}</div>`;
+   button.disabled=false;button.textContent='Choose PDF →';
+   button.onclick=()=>{
+     document.getElementById('workspace').scrollIntoView({behavior:'smooth'});
+     setTimeout(()=>document.getElementById('pdfFile')?.click(),650);
+   };
+   document.getElementById('workspace').scrollIntoView({behavior:'smooth'});
+   setTimeout(()=>document.getElementById('pdfFile')?.click(),750);
+ }catch(e){
+   if(slot)slot.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`;
+   button.disabled=false;button.textContent='Retry intake';
+ }
+}
+
 async function challengeOutcome(o){
  const root=document.getElementById(`challenge-${safeId(o.outcome)}`);
  if(!root)return;
@@ -550,7 +620,7 @@ async function challengeOutcome(o){
    const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
    if(!r.ok)throw new Error(d?.detail||`Conclusion challenge failed (HTTP ${r.status})`);
    const dims=(d.dimensions||[]).map(x=>`<div class="challenge-dim"><div class="block-head"><b>${esc(x.dimension.replaceAll('_',' '))}</b><span class="sev ${esc(x.severity)}">${esc(x.severity)}</span></div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
-   const records=(d.records||[]).slice(0,10).map(x=>`<div class="challenge-record"><div class="block-head"><span class="challenge-signal ${esc(x.challenge_signal)}">${esc(x.challenge_signal.replaceAll('_',' '))}</span><span class="db">${esc(x.evidence_level)}</span></div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
+   const records=(d.records||[]).slice(0,10).map(x=>`<div class="challenge-record"><div class="block-head"><span class="challenge-signal ${esc(x.challenge_signal)}">${esc(x.challenge_signal.replaceAll('_',' '))}</span><span class="db">${esc(x.evidence_level)}</span></div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div>${x.relevance!=='indirect'?`<div class="gap-actions"><button class="small-btn" onclick='intakeCandidate(${JSON.stringify({title:x.title,pmid:x.pmid||null,doi:x.doi||null})},this)'>Add to evidence corpus →</button></div><div class="intake-slot"></div>`:''}</div>`).join('');
    const verdictClass=d.verdict==='materially_weakened'?'critical':d.verdict==='survived'?'verified':'warning';
    root.innerHTML=`<div class="challenge-box"><div class="block-head"><div><div class="kicker">Challenge verdict</div><b>${esc(d.verdict.replaceAll('_',' '))}</b></div><span class="status ${verdictClass}">${esc(d.verdict)}</span></div><div class="alarm info" style="margin-top:10px"><b>Revised conclusion</b><div>${esc(d.revised_conclusion)}</div></div><div style="margin-top:10px">${dims}</div><div class="row"><span>PubMed records examined</span><b>${d.records_examined}</b></div><div class="row"><span>Potential contradictions</span><b>${d.potential_contradictions}</b></div><div class="row"><span>Higher-level challenges</span><b>${d.higher_level_challenges}</b></div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">External challenge provenance</summary><div class="muted" style="margin-top:7px"><b>Adversarial PubMed query</b><br>${esc(d.external_query)}</div><div style="margin-top:8px">${records||'<span class="muted">No records returned.</span>'}</div><div class="method-note">${esc(d.interpretation_boundary)}</div></details></div>`;
  }catch(e){root.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`}
@@ -623,8 +693,11 @@ async function runPdf(){
      framework:data.trust_assessment?.framework||null,
      trust_overall:data.trust_assessment?.overall_judgement||null,
      record:data.record,
-     trust_assessment:data.trust_assessment
+     trust_assessment:data.trust_assessment,
+     provenance:window._pendingCandidate?{source:'user uploaded PDF for challenge candidate',pmid:window._pendingCandidate.pmid||null,doi:window._pendingCandidate.doi||null,pmcid:window._pendingCandidate.pmcid||null,license:window._pendingCandidate.license||null}:{source:'user uploaded PDF'}
    };
+   const shouldAutoSave=!!window._pendingCandidate;
+   window._pendingCandidate=null;
    const results=document.getElementById('results');
    results.insertAdjacentHTML('beforeend',renderTrustAssessment(data.trust_assessment));
    const meta=document.createElement('div');
@@ -635,6 +708,14 @@ async function runPdf(){
    save.className='corpus-bar';
    save.innerHTML='<div><b>Add this study to the Evidence Synthesis corpus</b><div class="muted">The full analysis summary will be stored locally in this browser.</div></div><button class="primary" onclick="saveCurrentStudy()">Save study</button>';
    results.insertBefore(save,meta.nextSibling);
+   if(shouldAutoSave){
+     const items=getCorpus(),s=window._lastAnalysedStudy;
+     const idx=items.findIndex(x=>x.report_id===s.report_id);
+     if(idx>=0)items[idx]=s;else items.push(s);
+     setCorpus(items);
+     save.innerHTML='<div><b>Challenge candidate added to corpus.</b><div class="muted">EvidenceOS will recalculate the synthesis automatically.</div></div><span class="status verified">saved</span>';
+     setTimeout(()=>{document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});synthesizeCorpus()},750);
+   }
  }catch(e){err.textContent=e.message}
  finally{btn.disabled=false;btn.textContent='Analyse full-text PDF'}
 }
