@@ -99,7 +99,15 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .filterbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 14px}.filterbar button{padding:7px 10px;font-size:11px;background:#edf3ef;color:var(--brand)}.filterbar button.active{background:var(--brand);color:white}
 .linkbox{background:#f7faf8;border:1px dashed #cfdcd5;padding:12px;border-radius:12px;margin-top:10px;font-size:12px}
 
-@media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
+.scope-options{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.scope-option{display:block;cursor:pointer}
+.scope-option input{position:absolute;opacity:0;pointer-events:none}
+.scope-card{display:block;padding:12px;border:1px solid rgba(255,255,255,.24);border-radius:12px;background:rgba(255,255,255,.08);transition:.15s}
+.scope-card b{display:block;color:white;font-size:13px}.scope-card span{display:block;color:#d6e6df;font-size:11px;margin-top:3px}
+.scope-option input:checked + .scope-card{background:white;border-color:white;box-shadow:0 5px 16px rgba(0,0,0,.12)}
+.scope-option input:checked + .scope-card b{color:var(--brand)}.scope-option input:checked + .scope-card span{color:var(--muted)}
+.scope-note{font-size:11px;color:#d6e6df;margin-top:8px;line-height:1.4}
+@media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -120,7 +128,14 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
     <div class="field"><label>Comparator</label><input id="qcomp" placeholder="Usual care / active comparator / leave blank"></div>
     <div class="field"><label>Outcomes</label><input id="qout" placeholder="Pain, fatigue, quality of life"></div>
     <div class="field"><label>Timepoint</label><input id="qtime" placeholder="12 weeks / long term / leave blank"></div>
-    <div class="field"><label>Search depth</label><input id="qmax" type="number" min="5" max="50" value="15"></div>
+    <div class="field searchwide"><label>Search scope</label>
+      <div class="scope-options">
+        <label class="scope-option"><input type="radio" name="qscope" value="10"><span class="scope-card"><b>Quick</b><span>Up to 10 records · rapid exploration</span></span></label>
+        <label class="scope-option"><input type="radio" name="qscope" value="25" checked><span class="scope-card"><b>Standard</b><span>Up to 25 records · recommended</span></span></label>
+        <label class="scope-option"><input type="radio" name="qscope" value="50"><span class="scope-card"><b>Broad</b><span>Up to 50 records · wider exploration</span></span></label>
+      </div>
+      <div class="scope-note">Controls how many PubMed records EvidenceOS initially examines. It does not represent evidence quality or certainty.</div>
+    </div>
   </div>
   <div class="actions"><button class="secondary" onclick="questionDemo()">Load example</button><button id="searchBtn" class="primary" onclick="searchEvidence()">Search PubMed</button></div>
   <div id="searchErr" style="margin-top:12px;color:#ffd7cf;font-size:13px"></div>
@@ -154,7 +169,8 @@ function render(rec){
 function questionDemo(){
  qtext.value='Does exercise improve pain and fatigue in adults with fibromyalgia?';
  qpop.value='Adults with fibromyalgia';qint.value='Therapeutic exercise';
- qcomp.value='Usual care';qout.value='Pain, fatigue';qtime.value='12 weeks';qmax.value=12;
+ qcomp.value='Usual care';qout.value='Pain, fatigue';qtime.value='12 weeks';
+ document.querySelector('input[name="qscope"][value="25"]').checked=true;
 }
 function renderSearch(data){
  const q=data.structured_question, r=data.retrieval||{}, intel=data.study_intelligence||{};
@@ -188,7 +204,7 @@ async function searchEvidence(){
  try{
    const response=await fetch('/v1/research-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
      question:qtext.value,population:qpop.value,intervention:qint.value,comparator:qcomp.value,
-     outcomes:outs,timepoint:qtime.value,max_results_per_strategy:Number(qmax.value||15)
+     outcomes:outs,timepoint:qtime.value,max_results_per_strategy:Number(document.querySelector('input[name="qscope"]:checked')?.value||25)
    })});
    const raw=await response.text();
    let data=null;
