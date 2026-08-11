@@ -8,13 +8,12 @@ from .dedup import deduplicate
 
 class RetrievalEngine:
     """
-    PubMed-only retrieval engine for the public alpha.
+    Stable PubMed-only retrieval for the public alpha.
 
-    OpenAlex is intentionally disabled in this release to reduce external
-    dependencies and make the live retrieval path easier to validate.
-
-    The rest of the EvidenceOS pipeline remains unchanged:
-    question -> query generation -> PubMed -> deduplication -> study intelligence.
+    To reduce latency and NCBI rate-limit pressure in a synchronous web request,
+    the live public endpoint executes one balanced PubMed strategy rather than
+    three overlapping strategies. Query generation still exposes the full
+    strategy family for future asynchronous/deep-search workflows.
     """
 
     def __init__(self, pubmed: PubMedClient | None = None):
@@ -25,29 +24,32 @@ class RetrievalEngine:
         question: StructuredQuestion,
         max_results_per_strategy: int = 50,
     ) -> RetrievalSummary:
-        all_strategies = QueryGenerator.generate_all(question)
+        pubmed_strategies = QueryGenerator.for_pubmed(question)
 
-        # Keep only PubMed strategies.
-        strategies = [
-            strategy
-            for strategy in all_strategies
-            if strategy.database == "pubmed"
-        ]
+        # Prefer the balanced strategy for the synchronous public web app.
+        balanced = next(
+            (s for s in pubmed_strategies if s.level == "balanced"),
+            pubmed_strategies[0] if pubmed_strategies else None,
+        )
 
-        records = []
-        for strategy in strategies:
-            records.extend(
-                self.pubmed.retrieve(
-                    strategy,
-                    max_results_per_strategy,
-                )
+        if balanced is None:
+            return RetrievalSummary(
+                question_id=question.question_id,
+                strategies=[],
+                records_before_deduplication=0,
+                records_after_deduplication=0,
+                records=[],
             )
 
+        records = self.pubmed.retrieve(
+            balanced,
+            max_results_per_strategy,
+        )
         unique = deduplicate(records)
 
         return RetrievalSummary(
             question_id=question.question_id,
-            strategies=strategies,
+            strategies=[balanced],
             records_before_deduplication=len(records),
             records_after_deduplication=len(unique),
             records=unique,
