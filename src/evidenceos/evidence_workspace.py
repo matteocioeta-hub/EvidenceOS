@@ -44,12 +44,21 @@ class EvidenceConfidenceProfile(BaseModel):
     rationale: list[str]
 
 
+class GapHypothesisLive(BaseModel):
+    gap_id: str
+    gap_type: str
+    topic: str
+    statement: str
+    reason: str
+
+
 class SynthesisResponse(BaseModel):
     studies: int
     designs: dict[str, int]
     outcomes: list[OutcomeBody]
     contradictions: list[str]
     gaps: list[str]
+    gap_hypotheses: list[GapHypothesisLive]
     confidence: EvidenceConfidenceProfile
     headline: str
     interpretation_boundary: str
@@ -116,6 +125,7 @@ def synthesize(req: SynthesisRequest) -> SynthesisResponse:
     bodies: list[OutcomeBody] = []
     contradictions: list[str] = []
     gaps: list[str] = []
+    gap_hypotheses: list[GapHypothesisLive] = []
 
     for outcome, pairs in sorted(grouped.items(), key=lambda x: (-len(x[1]), x[0].lower())):
         dirs = Counter(_direction(r) for _, r in pairs)
@@ -190,6 +200,35 @@ def synthesize(req: SynthesisRequest) -> SynthesisResponse:
         if any(b.consistency in {"mixed", "mostly_consistent"} for b in bodies):
             gaps.append("Some outcomes contain inconsistent directional evidence that needs explanation.")
 
+    # Convert observable limitations into falsifiable hypotheses.
+    # These remain hypotheses until an adversarial search is executed.
+    for body in bodies:
+        safe_topic = body.outcome
+        if body.studies <= 1:
+            gap_hypotheses.append(GapHypothesisLive(
+                gap_id=f"GAP-Q-{len(gap_hypotheses)+1:03d}",
+                gap_type="quantity",
+                topic=safe_topic,
+                statement=f"Evidence addressing {safe_topic} may be sparse.",
+                reason="Only one analysed study currently contributes to this outcome.",
+            ))
+        if body.precision in {"mostly_unavailable", "partially_available"}:
+            gap_hypotheses.append(GapHypothesisLive(
+                gap_id=f"GAP-P-{len(gap_hypotheses)+1:03d}",
+                gap_type="precision",
+                topic=safe_topic,
+                statement=f"Evidence for {safe_topic} may be insufficiently precise.",
+                reason="Confidence-interval information is incomplete in the currently analysed evidence.",
+            ))
+        if body.consistency in {"mixed", "mostly_consistent"}:
+            gap_hypotheses.append(GapHypothesisLive(
+                gap_id=f"GAP-C-{len(gap_hypotheses)+1:03d}",
+                gap_type="consistency",
+                topic=safe_topic,
+                statement=f"Inconsistency in evidence for {safe_topic} may require explanation.",
+                reason="The analysed results do not all point in the same direction.",
+            ))
+
     n = len(req.studies)
     quantity = "limited" if n <= 2 else "moderate" if n <= 5 else "substantial"
 
@@ -259,6 +298,7 @@ def synthesize(req: SynthesisRequest) -> SynthesisResponse:
         outcomes=bodies,
         contradictions=contradictions,
         gaps=gaps,
+        gap_hypotheses=gap_hypotheses,
         confidence=EvidenceConfidenceProfile(
             quantity=quantity,
             consistency=consistency_global,
