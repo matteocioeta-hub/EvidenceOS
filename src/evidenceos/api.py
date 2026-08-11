@@ -9,6 +9,7 @@ from .evidence_schema_v1 import UniversalEvidenceRecord
 from .question_search import GuidedSearchRequest, GuidedSearchResponse, run_guided_search
 from .study_workspace import StudyWorkspaceRequest, StudyWorkspaceResponse, build_study_workspace
 from .pdf_ingest import extract_pdf_text, PdfIngestError
+from .trust_engine import TrustAssessment, assess_full_text
 
 app = FastAPI(
     title="EvidenceOS",
@@ -32,6 +33,7 @@ class PdfExtractResponse(BaseModel):
     filename: str
     pages: int
     extracted_characters: int
+    trust_assessment: TrustAssessment
 
 
 @app.get("/health")
@@ -73,11 +75,13 @@ async def extract_pdf(
                 detail=f"Extracted PDF text exceeds EVIDENCEOS_MAX_INPUT_CHARS={settings.max_input_chars}.",
             )
         record = ExtractionEngineV1().extract(report_id, title, text)
+        trust = assess_full_text(report_id, title, text)
         return PdfExtractResponse(
             record=record,
             filename=filename,
             pages=pages,
             extracted_characters=len(text),
+            trust_assessment=trust,
         )
     except PdfIngestError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -175,6 +179,17 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .upload-zone b{display:block;font-size:14px}.upload-zone span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
 .file-pill{display:none;margin-top:10px;padding:9px 11px;border-radius:10px;background:#eaf2ee;color:var(--brand);font-size:12px;font-weight:700;text-align:left}
 .pdf-meta{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.pdf-meta span{background:#edf3ef;padding:5px 8px;border-radius:8px;font-size:11px;color:var(--brand)}
+
+
+.trust-panel{margin:16px 0 0;border:1px solid var(--line);border-radius:18px;background:white;padding:18px}
+.trust-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.trust-title{font-size:22px;letter-spacing:-.03em;margin:3px 0}
+.trust-banner{padding:12px 13px;border-radius:12px;background:#f4f8f6;margin:12px 0;font-size:13px}
+.rob-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}
+.rob-domain{padding:10px;border-radius:11px;background:#f7f9f8;border:1px solid var(--line)}
+.rob-domain b{font-size:11px;display:block}.rob-domain span{font-size:10px;color:var(--muted)}
+.rob-domain.low{background:#eff8f3}.rob-domain.some_concerns{background:#fff8e5}.rob-domain.high{background:#fff0ed}.rob-domain.unresolved{background:#f2f3f4}
+@media(max-width:700px){.rob-grid{grid-template-columns:1fr 1fr}}
 
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
@@ -376,6 +391,19 @@ function pdfSelected(){
  pill.style.display='block';
  pill.textContent=`${f.name} · ${(f.size/1024/1024).toFixed(2)} MB`;
 }
+
+function renderTrustAssessment(t){
+ if(!t)return '';
+ if(!t.applicable){
+   return `<div class="trust-panel"><div class="kicker">How much can we trust this study?</div><h3 class="trust-title">${esc(t.headline)}</h3><div class="trust-banner">${esc(t.explanation)}</div></div>`;
+ }
+ const outcomes=(t.outcome_assessments||[]).map((a,i)=>{
+   const domains=(a.domains||[]).map(d=>`<div class="rob-domain ${esc(d.judgement)}"><b>${esc(d.domain_id)} · ${esc(d.judgement)}</b><span>${esc(d.domain_name)}</span></div>`).join('');
+   return `<div class="record" style="margin-top:12px"><div class="block-head"><div><b>${esc(a.outcome||'Outcome')}</b><div class="muted">${esc([a.timepoint,a.effect_measure].filter(Boolean).join(' · '))}</div></div><span class="status ${a.overall_judgement==='low'?'verified':a.overall_judgement==='high'?'critical':'warning'}">${esc(a.overall_judgement)}</span></div><div class="rob-grid">${domains}</div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Why this judgement?</summary><div class="muted" style="margin-top:6px">${esc(a.overall_rationale||'')}</div></details></div>`;
+ }).join('');
+ return `<div class="trust-panel"><div class="trust-head"><div><div class="kicker">How much can we trust this study?</div><h3 class="trust-title">${esc(t.headline)}</h3></div><span class="status warning">${esc(t.framework)}</span></div><div class="trust-banner">${esc(t.explanation)}</div>${outcomes}</div>`;
+}
+
 async function runPdf(){
  const btn=document.getElementById('runBtn'),err=document.getElementById('err');
  const f=document.getElementById('pdfFile').files[0];err.textContent='';
@@ -399,6 +427,7 @@ async function runPdf(){
    if(!data?.record)throw new Error('EvidenceOS returned an invalid PDF analysis response.');
    render(data.record);
    const results=document.getElementById('results');
+   results.insertAdjacentHTML('beforeend',renderTrustAssessment(data.trust_assessment));
    const meta=document.createElement('div');
    meta.className='pdf-meta';
    meta.innerHTML=`<span>${esc(data.filename)}</span><span>${esc(data.pages)} pages</span><span>${esc(data.extracted_characters)} extracted characters</span>`;
