@@ -467,7 +467,11 @@ function eosTranslate(value){
 function eosTranslateTextNode(node){
  if(!EOS_TEXT_ORIGINAL.has(node))EOS_TEXT_ORIGINAL.set(node,node.data);
  const original=EOS_TEXT_ORIGINAL.get(node);
- node.data=EOS_LANG==='it'?eosTranslate(original):original;
+ const next=EOS_LANG==='it'?eosTranslate(original):original;
+ // Critical guard: assigning node.data fires a characterData mutation.
+ // Never write when the rendered text is already correct, otherwise the
+ // MutationObserver can recursively trigger itself and freeze the page.
+ if(node.data!==next) node.data=next;
 }
 function eosTranslateAttrs(el){
  if(!(el instanceof Element))return;
