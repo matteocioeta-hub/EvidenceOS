@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use EvidenceOS in research, please cite the software release."
+title: "EvidenceOS"
+type: software
+version: 0.1.0-alpha.1
+date-released: 2026-08-10
+authors:
+  - name: "EvidenceOS contributors"
+license: "LicenseRef-Proprietary"

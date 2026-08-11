@@ -1,0 +1,2 @@
+[console_scripts]
+evidenceos = evidenceos.cli:app
