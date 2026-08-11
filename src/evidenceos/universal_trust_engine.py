@@ -30,7 +30,7 @@ def _has(text: str, *patterns: str) -> bool:
 
 
 def detect_design(title: str, text: str) -> str:
-    blob = f"{title}\n{text[:30000]}"
+    blob = f"{title}\n{text[:20000]}"
 
     if _has(blob, r"\bmeta-analysis\b", r"\bmeta analysis\b"):
         return "meta_analysis"
@@ -191,11 +191,18 @@ def _qualitative(text: str) -> UniversalTrustAssessment:
 
 
 def _rct(report_id: str, title: str, text: str) -> UniversalTrustAssessment:
-    extraction = ExtractionEngine().extract(report_id, title, text)
+    # Keep the synchronous public endpoint bounded. RoB 2 signal extraction
+    # repeatedly scans source spans, so very long PDFs can otherwise exceed a
+    # cloud request timeout.
+    appraisal_text = text[:80000]
+    extraction = ExtractionEngine().extract(report_id, title, appraisal_text)
     engine = RoB2Engine()
     assessments = []
 
-    targets = extraction.outcomes or [None]
+    # In the public alpha, appraise at most the first three deterministically
+    # mapped results in one web request. A future background workflow can
+    # process every outcome/timepoint.
+    targets = extraction.outcomes[:3] if extraction.outcomes else [None]
     for result in targets:
         rid = result.result_id if result is not None else None
         rob = engine.assess(extraction, result_id=rid)
@@ -232,18 +239,22 @@ def _rct(report_id: str, title: str, text: str) -> UniversalTrustAssessment:
 
 
 def assess_full_text(report_id: str, title: str, text: str) -> UniversalTrustAssessment:
-    design = detect_design(title, text)
+    # Most appraisal routing/reporting signals occur in the first portion of a
+    # scientific report (abstract/methods/early results). Keeping this bounded
+    # prevents synchronous Render requests from timing out on very long PDFs.
+    bounded = text[:80000]
+    design = detect_design(title, bounded)
 
     if design == "randomized_controlled_trial":
-        return _rct(report_id, title, text)
+        return _rct(report_id, title, bounded)
     if design in {"systematic_review", "meta_analysis"}:
-        return _systematic_review(text, design)
+        return _systematic_review(bounded, design)
     if design == "diagnostic_accuracy":
-        return _diagnostic(text)
+        return _diagnostic(bounded)
     if design == "qualitative":
-        return _qualitative(text)
+        return _qualitative(bounded)
     if design in {"cohort", "case_control", "cross_sectional", "nonrandomized_intervention"}:
-        result = _generic_observational(text, design)
+        result = _generic_observational(bounded, design)
         if design == "nonrandomized_intervention":
             result.framework = "ROBINS-I-oriented appraisal"
             result.limitations.append(
