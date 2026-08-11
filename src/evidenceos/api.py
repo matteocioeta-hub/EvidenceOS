@@ -122,7 +122,7 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
     <div class="field"><label>Timepoint</label><input id="qtime" placeholder="12 weeks / long term / leave blank"></div>
     <div class="field"><label>Search depth</label><input id="qmax" type="number" min="5" max="50" value="15"></div>
   </div>
-  <div class="actions"><button class="secondary" onclick="questionDemo()">Load example</button><button id="searchBtn" class="primary" onclick="searchEvidence()">Search PubMed + OpenAlex</button></div>
+  <div class="actions"><button class="secondary" onclick="questionDemo()">Load example</button><button id="searchBtn" class="primary" onclick="searchEvidence()">Search PubMed</button></div>
   <div id="searchErr" style="margin-top:12px;color:#ffd7cf;font-size:13px"></div>
 </div>
 <div id="searchResults" class="search-results"></div>
@@ -190,10 +190,25 @@ async function searchEvidence(){
      question:qtext.value,population:qpop.value,intervention:qint.value,comparator:qcomp.value,
      outcomes:outs,timepoint:qtime.value,max_results_per_strategy:Number(qmax.value||15)
    })});
-   const data=await response.json();if(!response.ok)throw new Error(data.detail||'Search failed');
+   const raw=await response.text();
+   let data=null;
+   const ct=(response.headers.get('content-type')||'').toLowerCase();
+   if(ct.includes('application/json')){
+     try{data=JSON.parse(raw)}catch(_){data=null}
+   }
+   if(!response.ok){
+     if(data&&data.detail) throw new Error(data.detail);
+     if(raw.trim().startsWith('<')){
+       throw new Error(`EvidenceOS backend returned an HTML error page (HTTP ${response.status}). Check the latest Render deploy/logs; the search request may have timed out.`);
+     }
+     throw new Error(raw.slice(0,300)||`Search failed (HTTP ${response.status})`);
+   }
+   if(!data){
+     throw new Error('EvidenceOS received a non-JSON response from the backend.');
+   }
    renderSearch(data);
  }catch(e){err.textContent=e.message}
- finally{btn.disabled=false;btn.textContent='Search PubMed + OpenAlex'}
+ finally{btn.disabled=false;btn.textContent='Search PubMed'}
 }
 
 async function run(){
