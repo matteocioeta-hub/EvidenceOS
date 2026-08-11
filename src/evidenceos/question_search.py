@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from .models import StructuredQuestion, Concept, Comparator, Outcome, TimeSpec, Ambiguity
 from .retrieval_engine import RetrievalEngine
+from .study_intelligence_engine import StudyIntelligenceEngine
 
 
 class GuidedSearchRequest(BaseModel):
@@ -19,6 +20,7 @@ class GuidedSearchRequest(BaseModel):
 class GuidedSearchResponse(BaseModel):
     structured_question: StructuredQuestion
     retrieval: dict
+    study_intelligence: dict
 
 
 def build_guided_question(request: GuidedSearchRequest) -> StructuredQuestion:
@@ -83,11 +85,14 @@ def build_guided_question(request: GuidedSearchRequest) -> StructuredQuestion:
 
 def run_guided_search(request: GuidedSearchRequest) -> GuidedSearchResponse:
     question = build_guided_question(request)
-    summary = RetrievalEngine().retrieve(
+    retrieval = RetrievalEngine().retrieve(
         question,
         max_results_per_strategy=request.max_results_per_strategy,
     )
+    intelligence = StudyIntelligenceEngine().analyse(question, retrieval.records)
+
     return GuidedSearchResponse(
         structured_question=question,
-        retrieval=summary.model_dump(),
+        retrieval=retrieval.model_dump(),
+        study_intelligence=intelligence.model_dump(),
     )
