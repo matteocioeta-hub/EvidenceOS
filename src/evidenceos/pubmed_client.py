@@ -63,7 +63,20 @@ class PubMedClient:
         )
         self.tool = os.environ.get("NCBI_TOOL", "EvidenceOS")
         self.email = os.environ.get("NCBI_EMAIL")
-        self.api_key = os.environ.get("NCBI_API_KEY")
+        raw_api_key = (os.environ.get("NCBI_API_KEY") or "").strip()
+        invalid_placeholders = {
+            "la_tua_chiave_ncbi",
+            "your_ncbi_api_key",
+            "your_api_key",
+            "api_key",
+            "none",
+            "null",
+        }
+        self.api_key = (
+            raw_api_key
+            if raw_api_key and raw_api_key.lower() not in invalid_placeholders
+            else None
+        )
 
         self.max_retries = int(os.environ.get("NCBI_MAX_RETRIES", "5"))
 
