@@ -14,6 +14,7 @@ from .evidence_workspace import SynthesisRequest, SynthesisResponse, synthesize
 from .gap_falsification_live import GapFalsificationRequest, GapFalsificationResponse, falsify_gap
 from .conclusion_challenge_live import ConclusionChallengeRequest, ConclusionChallengeResponse, challenge_conclusion
 from .candidate_intake import CandidateIntakeRequest, CandidateIntakeResponse, intake_candidate
+from .project_workspace import ProjectValidationRequest, ProjectValidationResponse, validate_project
 
 app = FastAPI(
     title="EvidenceOS",
@@ -136,6 +137,14 @@ def challenge_conclusion_endpoint(request: ConclusionChallengeRequest):
 def intake_candidate_endpoint(request: CandidateIntakeRequest):
     try:
         return intake_candidate(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/project/validate", response_model=ProjectValidationResponse)
+def validate_project_endpoint(request: ProjectValidationRequest):
+    try:
+        return validate_project(request)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -273,15 +282,61 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 .intake-status{margin-top:8px;padding:10px 12px;border-radius:11px;background:#f4f8f6;border:1px solid var(--line);font-size:12px}
 .intake-status.success{background:#eef8f2}.intake-status.manual{background:#fff8e8}
 
+
+.project-shell{border:1px solid var(--line);background:white;border-radius:20px;padding:18px;box-shadow:0 8px 28px rgba(16,34,28,.04)}
+.project-grid{display:grid;grid-template-columns:1.3fr 1fr auto;gap:10px;align-items:end}
+.project-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.project-pill{padding:6px 9px;border-radius:9px;background:#edf3ef;font-size:11px;color:var(--brand)}
+.history-list{display:grid;gap:8px;margin-top:12px;max-height:280px;overflow:auto}
+.history-event{border-left:3px solid #cbd9d2;padding:9px 11px;background:#f8faf9;border-radius:0 10px 10px 0}
+.history-event b{font-size:12px}.history-event span{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.graph-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:white;padding:12px}
+.graph-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.graph-legend span{font-size:10px;padding:5px 8px;border-radius:999px;background:#edf3ef}
+.graph-node rect{stroke:#cad8d1;stroke-width:1}.graph-node text{font-size:11px;fill:#173f35}.graph-edge{stroke:#b8c8c0;stroke-width:1.2}
+.graph-study rect{fill:#f7faf8}.graph-outcome rect{fill:#eef6f2}.graph-gap rect{fill:#fff8e8}.graph-challenge rect{fill:#fff0ed}.graph-question rect{fill:#173f35}.graph-question text{fill:white}
+.graph-empty{padding:40px;text-align:center;color:var(--muted)}
+.storage-meter{height:6px;background:#edf1ef;border-radius:999px;overflow:hidden;margin-top:6px}.storage-meter span{display:block;height:100%;background:#6d9d89}
+@media(max-width:800px){.project-grid{grid-template-columns:1fr}}
+
+
+.lang-switch{display:flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:10px;background:white;margin-left:14px}
+.lang-switch button{padding:6px 8px;border-radius:7px;background:transparent;color:var(--muted);font-size:11px;font-weight:800}
+.lang-switch button.active{background:var(--brand);color:white}
+.nav-right{display:flex;align-items:center}
+@media(max-width:900px){.lang-switch{margin-left:0}}
+
 @media(max-width:900px){.hero-grid,.workspace{grid-template-columns:1fr}.searchgrid{grid-template-columns:1fr}.searchwide{grid-column:auto}.pico{grid-template-columns:1fr 1fr}.form{position:static}.modules{grid-template-columns:1fr 1fr}.summary{grid-template-columns:1fr 1fr}.navlinks{display:none}}@media(max-width:560px){.scope-options{grid-template-columns:1fr}.wrap{padding:0 16px}.hero{padding-top:48px}.modules{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metric{grid-template-columns:1fr}.foot{flex-direction:column}}
 </style>
 </head>
 <body>
-<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="navlinks"><a href="#ask">Ask EvidenceOS</a><a href="#workspace">Analyse a study</a><a href="#synthesis">Evidence Synthesis</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div></div></nav>
+<nav><div class="wrap" style="width:100%;display:flex;align-items:center;justify-content:space-between"><a class="brand" href="#"><span class="mark">E</span>EvidenceOS <span class="alpha">ALPHA</span></a><div class="nav-right"><div class="navlinks"><a href="#project">Project</a><a href="#ask">Ask EvidenceOS</a><a href="#workspace">Analyse a study</a><a href="#synthesis">Evidence Synthesis</a><a href="#evidenceGraph">Evidence Graph</a><a href="#modules">Platform</a><a href="/docs">API docs</a></div><div class="lang-switch" aria-label="Language"><button type="button" data-lang-choice="en" onclick="setLanguage('en')">EN</button><button type="button" data-lang-choice="it" onclick="setLanguage('it')">IT</button></div></div></div></nav>
 <main>
 <section class="hero"><div class="wrap"><span class="eyebrow"><span class="dot"></span> Auditable evidence intelligence</span><h1>Evidence you can inspect,<br>not just summaries you can read.</h1><div class="hero-grid"><div><p class="lede">EvidenceOS reconstructs the path from scientific reports to structured evidence, preserving provenance and surfacing contradictions before they become conclusions.</p><a href="#workspace"><button class="primary" style="padding:14px 18px">Analyse a study →</button></a></div><div class="hero-card"><div class="kicker">Current public alpha</div><div class="metric"><div><b>Source-linked</b><span>Every direct field carries provenance</span></div><div><b>Field-level</b><span>Verified, derived or unresolved</span></div><div><b>Adversarial</b><span>Consistency alarms challenge outputs</span></div></div></div></div></div></section>
 
 
+
+<section id="project"><div class="wrap">
+<div class="kicker">Persistent research workspace</div>
+<h2 class="section-title">EvidenceOS Project.</h2>
+<p class="section-sub">Keep the question, analysed studies, synthesis revisions, challenges and gaps together as one portable scientific project.</p>
+<div class="project-shell">
+  <div class="project-grid">
+    <div class="field" style="margin-top:0"><label>Active project</label><select id="projectSelect" onchange="switchProject(this.value)" style="width:100%;border:1px solid var(--line);border-radius:13px;padding:12px 13px;background:white"></select></div>
+    <div class="field" style="margin-top:0"><label>Project name</label><input id="projectName" placeholder="My evidence project" onchange="renameActiveProject(this.value)"></div>
+    <div class="actions" style="margin:0"><button class="secondary" onclick="newProject()">New</button><button class="secondary" onclick="exportProject()">Export JSON</button><button class="secondary" onclick="document.getElementById('projectImport').click()">Import</button><input id="projectImport" type="file" accept="application/json,.json" style="display:none" onchange="importProjectFile(this)"></div>
+  </div>
+  <div class="project-meta">
+    <span class="project-pill" id="projectIdPill">Project —</span>
+    <span class="project-pill"><span id="projectStudyCount">0</span> studies</span>
+    <span class="project-pill"><span id="projectRevisionCount">0</span> revisions</span>
+    <span class="project-pill" id="projectUpdated">Not saved yet</span>
+  </div>
+  <div style="margin-top:15px"><div class="block-head"><b>Revision history</b><button class="small-btn" onclick="renderProjectHistory()">Refresh</button></div><div id="projectHistory" class="history-list"></div></div>
+  <div class="muted" style="margin-top:12px">Browser persistence is the alpha storage layer. Export the project JSON for a portable backup; imported JSON is validated by the EvidenceOS backend before activation.</div>
+  <div class="storage-meter"><span id="storageMeter" style="width:0%"></span></div>
+  <div class="muted" id="storageLabel" style="margin-top:4px"></div>
+</div>
+</div></section>
 <section id="ask"><div class="wrap">
 <div class="kicker">Question-first evidence discovery</div>
 <h2 class="section-title">Ask EvidenceOS.</h2>
@@ -323,7 +378,7 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 <section id="synthesis"><div class="wrap">
 <div class="kicker">Multi-study workspace</div>
 <h2 class="section-title">Evidence Synthesis Workspace.</h2>
-<p class="section-sub">Save analysed full-text studies into a local evidence corpus, then inspect outcome patterns, contradictions, uncertainty and methodological coverage. The workspace stays in this browser unless you clear it.</p>
+<p class="section-sub">Save analysed full-text studies into a local evidence corpus, then inspect outcome patterns, contradictions, uncertainty and methodological coverage. The corpus belongs to the active EvidenceOS Project and is restored when you reopen that project in this browser.</p>
 <div class="panel" style="padding:22px">
   <div class="corpus-bar">
     <div><div class="corpus-count"><span id="corpusCount">0</span> saved studies</div><div class="muted">Stored locally in this browser</div></div>
@@ -333,7 +388,15 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
   <div id="synthResults"><div class="empty" style="height:260px"><div><div class="empty-icon">Σ</div><strong>No synthesis yet.</strong><div class="muted">Analyse and save at least one full-text PDF.</div></div></div></div>
 </div>
 </div></section>
-<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Live alpha</span><h3>Body of Evidence</h3><p>Stores analysed studies locally and builds outcome-level evidence patterns without collapsing incompatible results.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Live alpha</span><h3>Gap Falsification</h3><p>Turns apparent gaps into hypotheses and searches PubMed for counterevidence before calling them research opportunities.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
+
+<section id="evidenceGraph"><div class="wrap">
+<div class="kicker">Epistemic provenance map</div>
+<h2 class="section-title">Evidence Graph.</h2>
+<p class="section-sub">Inspect the current project as a graph: research question → full-text studies → outcome bodies → challenges and gap hypotheses. The graph represents relationships, not causal certainty.</p>
+<div class="graph-legend"><span>Question</span><span>Study</span><span>Outcome body</span><span>Challenge</span><span>Gap hypothesis</span></div>
+<div class="graph-wrap"><div id="graphRoot" class="graph-empty">Run or restore an Evidence Synthesis to build the graph.</div></div>
+</div></section>
+<section id="modules"><div class="wrap"><div class="kicker">Evidence intelligence platform</div><h2 class="section-title">Beyond extraction.</h2><p class="section-sub">The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.</p><div class="modules"><div class="module"><span class="state">Live alpha</span><h3>Study Workspace</h3><p>Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.</p></div><div class="module"><span class="state">Experimental</span><h3>Critical Appraisal</h3><p>Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.</p></div><div class="module"><span class="state">Live alpha</span><h3>Project + Evidence Graph</h3><p>Persists question, studies, synthesis revisions, challenge history and gap hypotheses as one exportable project with an inspectable evidence graph.</p></div><div class="module"><span class="state">Experimental</span><h3>Challenge Engine</h3><p>Actively looks for comparator traps, contradictory results and quality asymmetries.</p></div><div class="module"><span class="state">Live alpha</span><h3>Gap Falsification</h3><p>Turns apparent gaps into hypotheses and searches PubMed for counterevidence before calling them research opportunities.</p></div><div class="module"><span class="state">In validation</span><h3>Certainty Calibration</h3><p>Separates effect magnitude from how confidently the evidence supports a conclusion.</p></div></div><div class="foot"><div>EvidenceOS v""" + __version__ + r""" · Research software alpha</div><div>Not a substitute for independent methodological or clinical judgement.</div></div></div></section>
 </main>
 
 <div id="studyDrawer" class="study-drawer" onclick="drawerBackdrop(event)">
@@ -345,6 +408,119 @@ section{padding:52px 0}.section-title{font-size:34px;letter-spacing:-.04em;margi
 
 
 <script>
+
+const LANG_KEY='evidenceos_ui_language';
+let EOS_LANG=localStorage.getItem(LANG_KEY)||((navigator.language||'').toLowerCase().startsWith('it')?'it':'en');
+const EOS_IT={"Project": "Progetto", "Ask EvidenceOS": "Chiedi a EvidenceOS", "Analyse a study": "Analizza uno studio", "Evidence Synthesis": "Sintesi delle evidenze", "Evidence Graph": "Grafo delle evidenze", "Platform": "Piattaforma", "API docs": "Documentazione API", "Auditable evidence intelligence": "Intelligenza delle evidenze verificabile", "Evidence you can inspect,": "Evidenze che puoi ispezionare,", "not just summaries you can read.": "non solo riassunti da leggere.", "EvidenceOS reconstructs the path from scientific reports to structured evidence, preserving provenance and surfacing contradictions before they become conclusions.": "EvidenceOS ricostruisce il percorso dai report scientifici alle evidenze strutturate, preservando la provenienza e facendo emergere le contraddizioni prima che diventino conclusioni.", "Analyse a study →": "Analizza uno studio →", "Current public alpha": "Alpha pubblica attuale", "Source-linked": "Collegato alla fonte", "Every direct field carries provenance": "Ogni campo diretto conserva la provenienza", "Field-level": "A livello di campo", "Verified, derived or unresolved": "Verificato, derivato o non risolto", "Adversarial": "Avversariale", "Consistency alarms challenge outputs": "Gli allarmi di coerenza mettono alla prova gli output", "Persistent research workspace": "Workspace di ricerca persistente", "EvidenceOS Project.": "Progetto EvidenceOS.", "Keep the question, analysed studies, synthesis revisions, challenges and gaps together as one portable scientific project.": "Mantieni domanda, studi analizzati, revisioni della sintesi, challenge e gap insieme in un unico progetto scientifico portabile.", "Active project": "Progetto attivo", "Project name": "Nome del progetto", "New": "Nuovo", "Export JSON": "Esporta JSON", "Import": "Importa", "Project —": "Progetto —", "studies": "studi", "revisions": "revisioni", "Not saved yet": "Non ancora salvato", "Revision history": "Cronologia delle revisioni", "Refresh": "Aggiorna", "Browser persistence is the alpha storage layer. Export the project JSON for a portable backup; imported JSON is validated by the EvidenceOS backend before activation.": "La persistenza nel browser è il livello di archiviazione dell'alpha. Esporta il JSON del progetto per un backup portabile; i JSON importati vengono validati dal backend di EvidenceOS prima dell'attivazione.", "No revisions yet. Synthesis, challenge and gap-falsification events will appear here.": "Nessuna revisione. Gli eventi di sintesi, challenge e falsificazione dei gap compariranno qui.", "Project exported as JSON": "Progetto esportato come JSON", "Project imported and validated": "Progetto importato e validato", "New project ready.": "Nuovo progetto pronto.", "Define the question and add full-text studies.": "Definisci la domanda e aggiungi studi full text.", "No synthesis yet for this project.": "Nessuna sintesi disponibile per questo progetto.", "Untitled evidence project": "Progetto di evidenze senza titolo", "Evidence project 1": "Progetto di evidenze 1", "New evidence project": "Nuovo progetto di evidenze", "Question-first evidence discovery": "Ricerca delle evidenze guidata dalla domanda", "Ask EvidenceOS.": "Chiedi a EvidenceOS.", "Define the clinical or research question you actually want answered. In this public alpha, you confirm the PICO explicitly so the search logic remains transparent and reproducible.": "Definisci la domanda clinica o di ricerca a cui vuoi realmente rispondere. In questa alpha pubblica confermi esplicitamente il PICO, così la logica di ricerca resta trasparente e riproducibile.", "Research question": "Domanda di ricerca", "Population": "Popolazione", "Intervention": "Intervento", "Comparator": "Comparatore", "Outcomes": "Outcome", "Timepoint": "Tempo di follow-up", "Search scope": "Ampiezza della ricerca", "Quick": "Rapida", "Up to 10 records · rapid exploration": "Fino a 10 record · esplorazione rapida", "Standard": "Standard", "Up to 25 records · recommended": "Fino a 25 record · consigliata", "Broad": "Ampia", "Up to 50 records · wider exploration": "Fino a 50 record · esplorazione più ampia", "Controls how many PubMed records EvidenceOS initially examines. It does not represent evidence quality or certainty.": "Controlla quanti record PubMed EvidenceOS esamina inizialmente. Non rappresenta la qualità o la certezza delle evidenze.", "Load example": "Carica esempio", "Search PubMed": "Cerca su PubMed", "Searching": "Ricerca in corso", "Question, population, intervention and at least one outcome are required.": "Sono richiesti domanda, popolazione, intervento e almeno un outcome.", "Unique records": "Record unici", "Search strategies": "Strategie di ricerca", "Report links detected": "Collegamenti tra report rilevati", "Likely relevant": "Probabilmente rilevante", "Indirect": "Indiretto", "Uncertain": "Incerto", "Excluded": "Escluso", "All": "Tutti", "Interpretation boundary": "Limite interpretativo", "Eligibility and design labels are machine-assisted screening signals, not final systematic-review inclusion decisions. Full-text verification remains required.": "Le etichette di eleggibilità e design sono segnali di screening assistiti dalla macchina, non decisioni finali di inclusione in una revisione sistematica. È ancora necessaria la verifica del full text.", "Potential multiple-report links": "Possibili collegamenti tra più report", "No records in this category.": "Nessun record in questa categoria.", "Why this classification?": "Perché questa classificazione?", "No rationale available.": "Nessuna motivazione disponibile.", "Open Study Workspace →": "Apri Study Workspace →", "confidence": "confidenza", "uncertain design": "design incerto", "Live workspace": "Workspace operativo", "Turn a report into an auditable evidence record.": "Trasforma un report in un record di evidenza verificabile.", "Upload the full-text PDF. EvidenceOS extracts machine-readable text, reconstructs sample structure, maps results and flags inconsistencies. Unsupported fields remain unresolved.": "Carica il PDF full text. EvidenceOS estrae il testo leggibile dalla macchina, ricostruisce la struttura del campione, mappa i risultati e segnala le incoerenze. I campi non supportati restano non risolti.", "Full-text PDF": "PDF full text", "PDF-only study extraction": "Estrazione dello studio solo da PDF", "Report ID": "ID del report", "Study title": "Titolo dello studio", "Choose full-text PDF": "Seleziona PDF full text", "or drag and drop a PDF here · max 20 MB": "oppure trascina qui un PDF · max 20 MB", "Analyse full-text PDF": "Analizza PDF full text", "Analysing PDF": "Analisi PDF in corso", "Your full-text evidence record will appear here.": "Il record di evidenza del full text comparirà qui.", "EvidenceOS separates what is reported, what is derived and what remains uncertain.": "EvidenceOS distingue ciò che è riportato, ciò che è derivato e ciò che resta incerto.", "Universal Evidence Record": "Record universale di evidenza", "Sample sets": "Set di campione", "Results mapped": "Risultati mappati", "Consistency alarms": "Allarmi di coerenza", "Grounded sample fields": "Campi del campione supportati dalla fonte", "Study identity": "Identità dello studio", "Design": "Design", "Trial registration": "Registrazione del trial", "Sample structure": "Struttura del campione", "Total N": "N totale", "No sample structure could be verified.": "Non è stato possibile verificare la struttura del campione.", "Outcome results": "Risultati per outcome", "Outcome": "Outcome", "Instrument": "Strumento", "Effect measure": "Misura dell'effetto", "Estimate": "Stima", "95% CI lower": "Limite inferiore IC 95%", "95% CI upper": "Limite superiore IC 95%", "p value": "valore p", "Direction": "Direzione", "No result format was confidently mapped. Unsupported formats remain unresolved rather than guessed.": "Nessun formato di risultato è stato mappato con sufficiente sicurezza. I formati non supportati restano non risolti invece di essere dedotti.", "Epistemic alarms": "Allarmi epistemici", "No internal consistency alarm was triggered for the extracted fields.": "Nessun allarme di coerenza interna è stato attivato per i campi estratti.", "Raw record JSON": "JSON grezzo del record", "Derived:": "Derivato:", "Detected from uploaded full-text PDF by the EvidenceOS design router.": "Rilevato dal PDF full text caricato tramite il router di design di EvidenceOS.", "Add the study title.": "Aggiungi il titolo dello studio.", "Choose the full-text PDF.": "Seleziona il PDF full text.", "Only PDF files are supported.": "Sono supportati solo file PDF.", "EvidenceOS returned an invalid PDF analysis response.": "EvidenceOS ha restituito una risposta di analisi PDF non valida.", "Added to corpus": "Aggiunto al corpus", "Study Workspace": "Study Workspace", "Building appraisal scaffold…": "Costruzione dello schema di appraisal…", "Predicted design": "Design previsto", "Eligibility signal": "Segnale di eleggibilità", "Appraisal framework": "Framework di appraisal", "Appraisal readiness": "Prontezza per l'appraisal", "This measures information available for appraisal, not study quality.": "Misura le informazioni disponibili per l'appraisal, non la qualità dello studio.", "Signals observable from PubMed": "Segnali osservabili da PubMed", "Observed in title/abstract": "Osservato in titolo/abstract", "Not observed in abstract": "Non osservato nell'abstract", "Eligibility against your PICO": "Eleggibilità rispetto al tuo PICO", "No dimension-level rationale available.": "Nessuna motivazione disponibile a livello di dimensione.", "What EvidenceOS still needs": "Cosa serve ancora a EvidenceOS", "Abstract": "Abstract", "Continue to full-text analysis →": "Continua con l'analisi full text →", "Upload the full-text PDF in the Study Extraction workspace. RoB 2 will only become valid once outcome-specific full-text evidence is available.": "Carica il PDF full text nello Study Extraction workspace. RoB 2 diventa metodologicamente applicabile solo quando sono disponibili evidenze full text specifiche per outcome.", "Multi-study workspace": "Workspace multi-studio", "Evidence Synthesis Workspace.": "Workspace di sintesi delle evidenze.", "Save analysed full-text studies into a local evidence corpus, then inspect outcome patterns, contradictions, uncertainty and methodological coverage. The corpus belongs to the active EvidenceOS Project and is restored when you reopen that project in this browser.": "Salva gli studi full text analizzati in un corpus di evidenze, quindi esamina pattern degli outcome, contraddizioni, incertezza e copertura metodologica. Il corpus appartiene al progetto EvidenceOS attivo e viene ripristinato quando riapri il progetto in questo browser.", "saved studies": "studi salvati", "Stored locally in this browser": "Archiviati localmente in questo browser", "Clear corpus": "Svuota corpus", "Synthesize evidence": "Sintetizza evidenze", "Synthesizing": "Sintesi in corso", "No synthesis yet.": "Nessuna sintesi disponibile.", "Analyse and save at least one full-text PDF.": "Analizza e salva almeno un PDF full text.", "Save at least one analysed PDF first.": "Salva prima almeno un PDF analizzato.", "What does the evidence suggest?": "Cosa suggeriscono le evidenze?", "How resolved is the evidence?": "Quanto sono risolte le evidenze?", "Quantity": "Quantità", "Consistency": "Coerenza", "Methodology": "Metodologia", "Precision": "Precisione", "Directness": "Direttezza", "Outcome bodies": "Body of evidence per outcome", "Contradictions": "Contraddizioni", "No outcome-level evidence available.": "Nessuna evidenza disponibile a livello di outcome.", "No explicit directional contradiction detected.": "Nessuna contraddizione direzionale esplicita rilevata.", "What remains uncertain?": "Cosa resta incerto?", "No broad uncertainty automatically detected.": "Nessuna incertezza generale rilevata automaticamente.", "Falsifiable gap hypotheses": "Ipotesi di gap falsificabili", "EvidenceOS treats each apparent gap as a hypothesis and actively searches for counterevidence before calling it a research opportunity.": "EvidenceOS tratta ogni gap apparente come un'ipotesi e cerca attivamente controevidenza prima di definirlo un'opportunità di ricerca.", "No falsifiable gap hypothesis generated from this corpus.": "Nessuna ipotesi di gap falsificabile generata da questo corpus.", "Methodological support": "Supporto metodologico", "Challenge this conclusion →": "Metti alla prova questa conclusione →", "Try to prove the current interpretation wrong": "Prova a dimostrare che l'interpretazione corrente è errata", "Challenge this gap →": "Metti alla prova questo gap →", "Search PubMed for counterevidence": "Cerca controevidenza su PubMed", "Evidence for this outcome comes from a single analysed study.": "Le evidenze per questo outcome provengono da un singolo studio analizzato.", "The analysed evidence is heterogeneous; the dominant direction should be qualified.": "Le evidenze analizzate sono eterogenee; la direzione dominante deve essere qualificata.", "The available extracted results do not support a directional conclusion.": "I risultati estratti disponibili non supportano una conclusione direzionale.", "No outcome-level result was deterministically extracted from the stored PDFs.": "Nessun risultato a livello di outcome è stato estratto deterministicamente dai PDF salvati.", "Confidence intervals/precision information is largely unavailable in the extracted evidence.": "Le informazioni sugli intervalli di confidenza/precisione sono in gran parte non disponibili nelle evidenze estratte.", "Some outcomes contain inconsistent directional evidence that needs explanation.": "Alcuni outcome contengono evidenze direzionali incoerenti che richiedono spiegazione.", "Directness is intentionally not inferred until study-to-question PICO mapping is implemented.": "La direttezza non viene intenzionalmente inferita finché non sarà implementata la mappatura PICO studio-domanda.", "The analysed evidence shows a broadly consistent pattern.": "Le evidenze analizzate mostrano un pattern ampiamente coerente.", "The current body of evidence contains important contradictions.": "L'attuale body of evidence contiene contraddizioni importanti.", "The current evidence pattern is only partially resolved.": "Il pattern delle evidenze attuale è solo parzialmente risolto.", "EvidenceOS cannot yet form an outcome-level body of evidence.": "EvidenceOS non può ancora costruire un body of evidence a livello di outcome.", "This synthesis includes only PDFs explicitly analysed and saved in this browser workspace. It is not a systematic review, meta-analysis or GRADE assessment. EvidenceOS does not pool incompatible outcomes/designs and does not infer missing directness or publication-bias information.": "Questa sintesi include solo i PDF esplicitamente analizzati e salvati nel workspace. Non è una revisione sistematica, una meta-analisi o una valutazione GRADE. EvidenceOS non combina outcome/design incompatibili e non deduce informazioni mancanti su direttezza o publication bias.", "Gap falsification result": "Risultato della falsificazione del gap", "Refined statement": "Formulazione raffinata", "Records examined": "Record esaminati", "Direct counterevidence": "Controevidenza diretta", "Partial counterevidence": "Controevidenza parziale", "Anti-gap search provenance": "Provenienza della ricerca anti-gap", "PubMed query": "Query PubMed", "No records returned.": "Nessun record restituito.", "Trying to falsify this gap on PubMed…": "Tentativo di falsificare questo gap su PubMed…", "direct": "diretta", "partial": "parziale", "indirect": "indiretto", "rejected": "respinto", "refined": "raffinato", "not_falsified": "non falsificato", "unresolved": "non risolto", "Failure to retrieve a counterexample is not proof of a research gap. Search coverage, indexing, terminology and database scope remain sources of uncertainty.": "Il mancato reperimento di un controesempio non dimostra l'esistenza di un gap di ricerca. Copertura della ricerca, indicizzazione, terminologia e database restano fonti di incertezza.", "No PubMed records were returned by this anti-gap query. A negative search cannot establish that the literature is absent; broader terminology or databases may be needed.": "La query anti-gap non ha restituito record PubMed. Una ricerca negativa non può dimostrare l'assenza della letteratura; potrebbero servire termini più ampi o altri database.", "Challenge verdict": "Verdetto del challenge", "Revised conclusion": "Conclusione rivista", "PubMed records examined": "Record PubMed esaminati", "Potential contradictions": "Potenziali contraddizioni", "Higher-level challenges": "Challenge da evidenze di livello superiore", "External challenge provenance": "Provenienza del challenge esterno", "Adversarial PubMed query": "Query PubMed avversariale", "Challenging the conclusion against the stored corpus and PubMed…": "Messa alla prova della conclusione rispetto al corpus salvato e a PubMed…", "internal contradictory evidence": "evidenza interna contraddittoria", "thin evidence base": "base di evidenze limitata", "methodological uncertainty": "incertezza metodologica", "external contradictory evidence": "evidenza esterna contraddittoria", "higher level counterevidence": "controevidenza di livello superiore", "comparator trap": "trappola del comparatore", "timepoint and durability": "tempo di follow-up e durata", "potentially contradictory": "potenzialmente contraddittoria", "potentially supportive": "potenzialmente a supporto", "neutral or unclear": "neutra o non chiara", "evidence synthesis": "sintesi delle evidenze", "trial": "trial", "observational": "osservazionale", "other": "altro", "survived": "superata", "survived_with_qualification": "superata con qualificazioni", "materially_weakened": "sostanzialmente indebolita", "PubMed challenge records are screened from title/abstract signals only. They are potential counterevidence, not confirmed contradictions. A materially important record should be imported as full text and appraised before changing the final evidence conclusion.": "I record PubMed del challenge sono valutati solo tramite segnali da titolo/abstract. Rappresentano potenziale controevidenza, non contraddizioni confermate. Un record materialmente importante dovrebbe essere importato come full text e sottoposto ad appraisal prima di modificare la conclusione finale.", "No internal directional contradiction was detected in the stored body.": "Nessuna contraddizione direzionale interna rilevata nel body of evidence salvato.", "Methodological trust is insufficiently characterized across contributing studies.": "L'affidabilità metodologica è caratterizzata in modo insufficiente negli studi contribuenti.", "No directly relevant abstract-level contradictory signal was identified in this adversarial search.": "Nessun segnale contraddittorio direttamente rilevante a livello di abstract è stato identificato in questa ricerca avversariale.", "No directly relevant evidence-synthesis counter-signal was identified.": "Nessun controsegnale direttamente rilevante proveniente da sintesi delle evidenze è stato identificato.", "No clear alternative-comparator challenge was detected in the examined records.": "Nessun chiaro challenge legato a un comparatore alternativo è stato rilevato nei record esaminati.", "Durability could not be adequately challenged from titles/abstracts in this search.": "La durata dell'effetto non ha potuto essere adeguatamente messa alla prova usando titoli/abstract in questa ricerca.", "Add to evidence corpus →": "Aggiungi al corpus di evidenze →", "Checking full text…": "Verifica full text…", "Checking PMC availability and reuse status…": "Verifica disponibilità PMC e condizioni di riuso…", "Added automatically.": "Aggiunto automaticamente.", "PDF required.": "PDF richiesto.", "Choose PDF →": "Seleziona PDF →", "Retry intake": "Riprova importazione", "Challenge candidate added to corpus.": "Candidato del challenge aggiunto al corpus.", "EvidenceOS will recalculate the synthesis automatically.": "EvidenceOS ricalcolerà automaticamente la sintesi.", "Reusable PMC full text was imported automatically, appraised, and is ready to enter the evidence corpus.": "Il full text PMC riutilizzabile è stato importato automaticamente, sottoposto ad appraisal ed è pronto per entrare nel corpus di evidenze.", "No reusable PMC full text was identified automatically. Upload the full-text PDF to continue.": "Non è stato identificato automaticamente un full text PMC riutilizzabile. Carica il PDF full text per continuare.", "The article is in PMC, but EvidenceOS did not verify a sufficiently permissive commercial-use license for automatic ingestion. Upload your full-text PDF instead.": "L'articolo è presente in PMC, ma EvidenceOS non ha verificato una licenza sufficientemente permissiva per l'uso commerciale e l'importazione automatica. Carica invece il tuo PDF full text.", "How much can we trust this study?": "Quanto possiamo fidarci di questo studio?", "Detected design:": "Design rilevato:", "Interpretation limits": "Limiti interpretativi", "Why this judgement?": "Perché questo giudizio?", "Preliminary RoB 2 assistance available": "Assistenza preliminare RoB 2 disponibile", "Outcome-specific randomized-trial appraisal": "Appraisal del trial randomizzato specifico per outcome", "Non-randomized intervention appraisal": "Appraisal dello studio di intervento non randomizzato", "Cohort study appraisal": "Appraisal dello studio di coorte", "Case-control study appraisal": "Appraisal dello studio caso-controllo", "Cross-sectional study appraisal": "Appraisal dello studio trasversale", "Prevalence study appraisal": "Appraisal dello studio di prevalenza", "Diagnostic accuracy appraisal": "Appraisal dello studio di accuratezza diagnostica", "Qualitative study appraisal": "Appraisal dello studio qualitativo", "Case series appraisal": "Appraisal della serie di casi", "Case report appraisal": "Appraisal del case report", "Prediction model appraisal": "Appraisal del modello predittivo", "Economic evaluation appraisal": "Appraisal della valutazione economica", "Systematic review appraisal": "Appraisal della revisione sistematica", "Scoping review appraisal": "Appraisal della scoping review", "Clinical guideline appraisal": "Appraisal della linea guida clinica", "Protocol detected": "Protocollo rilevato", "Study design requires confirmation": "Il design dello studio richiede conferma", "Full-text extraction succeeded; appraisal was not completed": "Estrazione del full text completata; appraisal non completato", "EvidenceOS RCT bias engine (RoB 2-aligned concepts)": "Motore EvidenceOS per il bias negli RCT (concetti allineati a RoB 2)", "EvidenceOS non-randomized intervention bias engine (ROBINS-I-oriented concepts)": "Motore EvidenceOS per il bias negli studi di intervento non randomizzati (concetti orientati a ROBINS-I)", "EvidenceOS cohort risk-of-bias engine (JBI-oriented constructs)": "Motore EvidenceOS per il rischio di bias negli studi di coorte (costrutti orientati JBI)", "EvidenceOS case-control bias engine (JBI-oriented constructs)": "Motore EvidenceOS per il bias negli studi caso-controllo (costrutti orientati JBI)", "EvidenceOS analytical cross-sectional bias engine (revised JBI-oriented constructs)": "Motore EvidenceOS per il bias negli studi trasversali analitici (costrutti JBI revisionati)", "EvidenceOS prevalence-study appraisal (JBI-oriented constructs)": "Appraisal EvidenceOS degli studi di prevalenza (costrutti orientati JBI)", "EvidenceOS diagnostic accuracy engine (QUADAS-3-oriented concepts)": "Motore EvidenceOS per l'accuratezza diagnostica (concetti orientati a QUADAS-3)", "EvidenceOS qualitative appraisal (JBI/CASP-oriented constructs)": "Appraisal qualitativo EvidenceOS (costrutti orientati JBI/CASP)", "EvidenceOS case-series appraisal (JBI-oriented constructs)": "Appraisal EvidenceOS delle serie di casi (costrutti orientati JBI)", "EvidenceOS case-report appraisal (JBI-oriented constructs)": "Appraisal EvidenceOS dei case report (costrutti orientati JBI)", "EvidenceOS prediction-model appraisal (PROBAST-oriented concepts)": "Appraisal EvidenceOS dei modelli predittivi (concetti orientati a PROBAST)", "EvidenceOS economic-evaluation appraisal": "Appraisal EvidenceOS delle valutazioni economiche", "EvidenceOS systematic-review appraisal (AMSTAR 2-oriented critical domains)": "Appraisal EvidenceOS delle revisioni sistematiche (domini critici orientati ad AMSTAR 2)", "EvidenceOS scoping-review methods appraisal": "Appraisal EvidenceOS dei metodi delle scoping review", "EvidenceOS guideline appraisal (AGREE-style domains)": "Appraisal EvidenceOS delle linee guida (domini in stile AGREE)", "EvidenceOS protocol appraisal": "Appraisal EvidenceOS dei protocolli", "EvidenceOS generic appraisal scaffold": "Schema generico di appraisal EvidenceOS", "human_verification_required": "richiede verifica umana", "substantial_information_available": "informazioni sostanziali disponibili", "outcome_specific": "specifico per outcome", "not_an_effect_estimate": "non è una stima di effetto", "appraisal_error": "errore di appraisal", "not_applicable": "non applicabile", "signal_present": "segnale presente", "Confounding": "Confondimento", "Classification of intervention": "Classificazione dell'intervento", "Selection into the study": "Selezione nello studio", "Deviations from intended intervention": "Deviazioni dall'intervento previsto", "Missing data": "Dati mancanti", "Outcome measurement": "Misurazione dell'outcome", "Selection of reported result": "Selezione del risultato riportato", "Selection and group comparability": "Selezione e comparabilità dei gruppi", "Exposure measurement": "Misurazione dell'esposizione", "Outcome at baseline / temporality": "Outcome al baseline / temporalità", "Follow-up and missingness": "Follow-up e dati mancanti", "Outcome measurement and analysis": "Misurazione dell'outcome e analisi", "Case definition": "Definizione dei casi", "Control selection": "Selezione dei controlli", "Exposure ascertainment": "Accertamento dell'esposizione", "Comparable ascertainment": "Accertamento comparabile", "Analysis": "Analisi", "Sampling frame and recruitment": "Frame di campionamento e reclutamento", "Eligibility criteria": "Criteri di eleggibilità", "Statistical analysis": "Analisi statistica", "Representative sampling frame": "Frame di campionamento rappresentativo", "Sampling method": "Metodo di campionamento", "Adequate sample planning": "Adeguata pianificazione della numerosità", "Condition measurement": "Misurazione della condizione", "Response / coverage": "Risposta / copertura", "Prevalence estimation": "Stima della prevalenza", "Participants": "Partecipanti", "Index test": "Test indice", "Target condition": "Condizione target", "Prospective protocol": "Protocollo prospettico", "Comprehensive search": "Ricerca esaustiva", "Duplicate review processes": "Processi di revisione in duplicato", "Risk-of-bias assessment": "Valutazione del rischio di bias", "Publication bias": "Bias di pubblicazione", "Protocol and a priori methods": "Protocollo e metodi a priori", "Search comprehensiveness": "Completezza della ricerca", "Duplicate study processes": "Processi in duplicato", "Risk-of-bias methods": "Metodi per il rischio di bias", "Synthesis methods": "Metodi di sintesi", "Heterogeneity": "Eterogeneità", "Small-study/publication bias": "Bias da piccoli studi/pubblicazione", "Conflicts and funding": "Conflitti e finanziamenti", "Congruity of methodology and question": "Coerenza tra metodologia e domanda", "Sampling and recruitment": "Campionamento e reclutamento", "Data collection": "Raccolta dati", "Researcher reflexivity": "Riflessività del ricercatore", "Grounding of findings": "Radicamento dei risultati nei dati", "Ethics": "Etica", "Clear inclusion criteria": "Criteri di inclusione chiari", "Reliable condition measurement": "Misurazione affidabile della condizione", "Consecutive/complete inclusion": "Inclusione consecutiva/completa", "Participant characteristics": "Caratteristiche dei partecipanti", "Clinical information/outcomes": "Informazioni cliniche/outcome", "Patient description": "Descrizione del paziente", "History/timeline": "Anamnesi/timeline", "Diagnostic assessment": "Valutazione diagnostica", "Follow-up/outcome": "Follow-up/outcome", "Predictors": "Predittori", "Perspective": "Prospettiva", "Comparators": "Comparatori", "Costs and outcomes": "Costi e outcome", "Time horizon / discounting": "Orizzonte temporale / attualizzazione", "Incremental analysis": "Analisi incrementale", "Uncertainty": "Incertezza", "Scope and purpose": "Ambito e finalità", "Stakeholder involvement": "Coinvolgimento degli stakeholder", "Rigour of development": "Rigore dello sviluppo", "Clarity": "Chiarezza", "Applicability": "Applicabilità", "Editorial independence": "Indipendenza editoriale", "Clear objectives": "Obiettivi chiari", "Prespecified methods": "Metodi prespecificati", "Registration": "Registrazione", "verified": "verificato", "derived": "derivato", "unverified": "non verificato", "ambiguous": "ambiguo", "conflicting": "in conflitto", "not_reported": "non riportato", "not reported": "non riportato", "observed": "osservato", "include": "includere", "exclude": "escluso", "uncertain": "incerto", "low": "basso", "some_concerns": "alcune criticità", "high": "alto", "minor": "minore", "material": "materiale", "critical": "critico", "none": "nessuno", "quantity": "quantità", "precision": "precisione", "consistency": "coerenza", "temporal": "temporale", "comparator": "comparatore", "replication": "replicazione", "limited": "limitata", "moderate": "moderata", "substantial": "sostanziale", "broadly_consistent": "ampiamente coerente", "partially_consistent": "parzialmente coerente", "concerns": "criticità", "not_assessable": "non valutabile", "relatively_well_characterized": "relativamente ben caratterizzato", "partially_characterized": "parzialmente caratterizzato", "insufficiently_characterized": "caratterizzato in modo insufficiente", "mostly_available": "prevalentemente disponibile", "partially_available": "parzialmente disponibile", "mostly_unavailable": "prevalentemente non disponibile", "not_yet_assessed": "non ancora valutata", "more_resolved": "più risolta", "partially_resolved": "parzialmente risolta", "substantially_uncertain": "sostanzialmente incerta", "consistent": "coerente", "mostly_consistent": "prevalentemente coerente", "mixed": "mista", "favours_intervention": "favorisce l'intervento", "favours_comparator": "favorisce il comparatore", "no_clear_difference": "nessuna differenza chiara", "randomized_controlled_trial": "trial randomizzato controllato", "nonrandomized_intervention": "studio di intervento non randomizzato", "cohort": "studio di coorte", "case_control": "studio caso-controllo", "cross_sectional": "studio trasversale", "prevalence": "studio di prevalenza", "diagnostic_accuracy": "studio di accuratezza diagnostica", "qualitative": "studio qualitativo", "case_series": "serie di casi", "case_report": "case report", "prediction_model": "modello predittivo", "economic_evaluation": "valutazione economica", "systematic_review": "revisione sistematica", "meta_analysis": "meta-analisi", "network_meta_analysis": "network meta-analysis", "scoping_review": "scoping review", "guideline": "linea guida", "protocol": "protocollo", "Epistemic provenance map": "Mappa della provenienza epistemica", "Evidence Graph.": "Grafo delle evidenze.", "Inspect the current project as a graph: research question → full-text studies → outcome bodies → challenges and gap hypotheses. The graph represents relationships, not causal certainty.": "Esamina il progetto corrente come grafo: domanda di ricerca → studi full text → body of evidence per outcome → challenge e ipotesi di gap. Il grafo rappresenta relazioni, non certezza causale.", "Question": "Domanda", "Study": "Studio", "Outcome body": "Body of evidence", "Challenge": "Challenge", "Gap hypothesis": "Ipotesi di gap", "Run or restore an Evidence Synthesis to build the graph.": "Esegui o ripristina una sintesi delle evidenze per costruire il grafo.", "Add analysed studies to this project to build the graph.": "Aggiungi studi analizzati a questo progetto per costruire il grafo.", "research question": "domanda di ricerca", "Evidence intelligence platform": "Piattaforma di evidence intelligence", "Beyond extraction.": "Oltre l'estrazione.", "The broader EvidenceOS architecture is being validated as separate modules rather than presented as one opaque AI answer.": "L'architettura più ampia di EvidenceOS viene validata come insieme di moduli separati, invece di essere presentata come un'unica risposta AI opaca.", "Live alpha": "Alpha attiva", "Record-level appraisal readiness, full-text handoff, sample flow, arms, outcomes, timepoints, effect estimates and provenance.": "Prontezza per l'appraisal a livello di record, passaggio al full text, flusso del campione, bracci, outcome, timepoint, stime dell'effetto e provenienza.", "Experimental": "Sperimentale", "Critical Appraisal": "Appraisal critico", "Outcome-specific methodological signals and RoB 2 assistance with source-linked rationale.": "Segnali metodologici specifici per outcome e assistenza RoB 2 con motivazione collegata alla fonte.", "Project + Evidence Graph": "Progetto + Grafo delle evidenze", "Persists question, studies, synthesis revisions, challenge history and gap hypotheses as one exportable project with an inspectable evidence graph.": "Conserva domanda, studi, revisioni della sintesi, cronologia dei challenge e ipotesi di gap in un unico progetto esportabile con grafo delle evidenze ispezionabile.", "Challenge Engine": "Challenge Engine", "Actively looks for comparator traps, contradictory results and quality asymmetries.": "Cerca attivamente trappole del comparatore, risultati contraddittori e asimmetrie di qualità.", "Gap Falsification": "Falsificazione dei gap", "Turns apparent gaps into hypotheses and searches PubMed for counterevidence before calling them research opportunities.": "Trasforma i gap apparenti in ipotesi e cerca controevidenza su PubMed prima di definirli opportunità di ricerca.", "In validation": "In validazione", "Certainty Calibration": "Calibrazione della certezza", "Separates effect magnitude from how confidently the evidence supports a conclusion.": "Separa la magnitudine dell'effetto dal grado di fiducia con cui le evidenze supportano una conclusione.", "Not a substitute for independent methodological or clinical judgement.": "Non sostituisce un giudizio metodologico o clinico indipendente.", "Clear all locally saved EvidenceOS studies from this browser?": "Eliminare tutti gli studi EvidenceOS salvati localmente in questo browser?", "Browser storage is full. Export this project as JSON before adding more evidence.": "Lo spazio di archiviazione del browser è pieno. Esporta il progetto come JSON prima di aggiungere altre evidenze.", "Could not import EvidenceOS project:": "Impossibile importare il progetto EvidenceOS:", "Project validation failed": "Validazione del progetto non riuscita", "EvidenceOS received a non-JSON response from the backend.": "EvidenceOS ha ricevuto dal backend una risposta non JSON.", "Appropriate random-sequence method reported.": "Metodo appropriato di generazione della sequenza casuale riportato.", "No clear random-sequence method identified.": "Nessun metodo chiaro di generazione della sequenza casuale identificato.", "Allocation-concealment signal identified.": "Segnale di occultamento dell'allocazione identificato.", "No clear allocation-concealment information identified.": "Nessuna informazione chiara sull'occultamento dell'allocazione identificata.", "Potential baseline imbalance explicitly reported.": "Potenziale squilibrio al baseline riportato esplicitamente.", "No explicit baseline-imbalance problem identified.": "Nessun problema esplicito di squilibrio al baseline identificato.", "Participants reported as blinded/masked.": "Partecipanti riportati come ciechi/mascherati.", "Participant awareness not clearly established.": "Consapevolezza dei partecipanti rispetto all'allocazione non chiaramente stabilita.", "Personnel reported as blinded.": "Personale riportato come cieco.", "Personnel awareness not clearly established.": "Consapevolezza del personale rispetto all'allocazione non chiaramente stabilita.", "Potential intervention deviation reported.": "Potenziale deviazione dall'intervento riportata.", "No clear trial-context deviation information identified.": "Nessuna informazione chiara su deviazioni legate al contesto del trial identificata.", "Requires contextual judgement beyond deterministic extraction.": "Richiede un giudizio contestuale oltre l'estrazione deterministica.", "Intention-to-treat analysis reported.": "Analisi intention-to-treat riportata.", "Appropriateness of analysis cannot be established from extracted signals.": "L'appropriatezza dell'analisi non può essere stabilita dai segnali estratti.", "Missingness terminology found; proportion/completeness requires result-level analysis.": "Rilevata terminologia relativa ai dati mancanti; proporzione e completezza richiedono un'analisi a livello di risultato.", "Outcome-data completeness not clearly established.": "Completezza dei dati di outcome non chiaramente stabilita.", "Requires result-level judgement about missingness.": "Richiede un giudizio a livello di risultato sui dati mancanti.", "Cannot be inferred safely without additional evidence.": "Non può essere inferito in modo sicuro senza evidenze aggiuntive.", "Validated measurement method explicitly reported.": "Metodo di misurazione validato riportato esplicitamente.", "Appropriateness of measurement method not established.": "Appropriatezza del metodo di misurazione non stabilita.", "No deterministic signal implemented for differential measurement.": "Nessun segnale deterministico implementato per la misurazione differenziale.", "Outcome assessor reported as blinded.": "Valutatore dell'outcome riportato come cieco.", "Outcome-assessor awareness not established.": "Consapevolezza del valutatore dell'outcome non stabilita.", "Requires outcome-specific contextual judgement.": "Richiede un giudizio contestuale specifico per outcome.", "Prospective analysis/protocol signal identified.": "Segnale di analisi/protocollo prospettico identificato.", "Prespecification cannot be established.": "La prespecificazione non può essere stabilita.", "Requires comparison with protocol/registry and outcome definitions.": "Richiede il confronto con protocollo/registro e definizioni degli outcome.", "Requires comparison with planned analyses.": "Richiede il confronto con le analisi pianificate.", "Confounding/adjustment strategy detected.": "Strategia di controllo del confondimento/aggiustamento rilevata.", "Important confounders and adequacy of control require verification.": "I confondenti importanti e l'adeguatezza del controllo richiedono verifica.", "Intervention classification information detected.": "Informazioni sulla classificazione dell'intervento rilevate.", "Misclassification of intervention remains unresolved.": "La misclassificazione dell'intervento resta non risolta.", "Selection/eligibility information detected.": "Informazioni su selezione/eleggibilità rilevate.", "Selection mechanisms require verification.": "I meccanismi di selezione richiedono verifica.", "Intervention-deviation/adherence information detected.": "Informazioni su deviazioni dall'intervento/aderenza rilevate.", "Bias from deviations remains unresolved.": "Il bias dovuto alle deviazioni resta non risolto.", "Missing-data information detected.": "Informazioni sui dati mancanti rilevate.", "Amount, mechanism and handling of missingness require verification.": "Quantità, meccanismo e gestione dei dati mancanti richiedono verifica.", "Outcome-measurement safeguard detected.": "Salvaguardia relativa alla misurazione dell'outcome rilevata.", "Differential or biased measurement remains unresolved.": "La misurazione differenziale o distorta resta non risolta.", "Prespecification signal detected.": "Segnale di prespecificazione rilevato.", "Selective reporting cannot be excluded automatically.": "Il reporting selettivo non può essere escluso automaticamente.", "A formal ROBINS-I assessment requires review-specific specification of the target trial and important confounders.": "Una valutazione formale ROBINS-I richiede la specificazione, per la revisione, del target trial e dei confondenti importanti.", "This output is not an official ROBINS-I judgement.": "Questo output non costituisce un giudizio ROBINS-I ufficiale.", "Selection/comparator information detected.": "Informazioni su selezione/comparatore rilevate.", "Selection and comparability require verification.": "Selezione e comparabilità richiedono verifica.", "Exposure measurement information detected.": "Informazioni sulla misurazione dell'esposizione rilevate.", "Exposure validity/reliability unresolved.": "Validità/affidabilità della misurazione dell'esposizione non risolta.", "Confounder handling detected.": "Gestione dei confondenti rilevata.", "Residual/unmeasured confounding unresolved.": "Confondimento residuo/non misurato non risolto.", "Temporal information detected.": "Informazioni temporali rilevate.", "Temporality requires verification.": "La temporalità richiede verifica.", "Follow-up information detected.": "Informazioni sul follow-up rilevate.", "Completeness and differential loss unresolved.": "Completezza e perdite differenziali non risolte.", "Outcome/analysis signal detected.": "Segnale relativo a outcome/analisi rilevato.", "Outcome ascertainment and model adequacy unresolved.": "Accertamento dell'outcome e adeguatezza del modello non risolti.", "Case-definition signal detected.": "Segnale sulla definizione dei casi rilevato.", "Validity of case definition unresolved.": "Validità della definizione dei casi non risolta.", "Control-selection information detected.": "Informazioni sulla selezione dei controlli rilevate.", "Source-population comparability unresolved.": "Comparabilità con la popolazione sorgente non risolta.", "Exposure-ascertainment signal detected.": "Segnale sull'accertamento dell'esposizione rilevato.", "Recall/differential ascertainment unresolved.": "Bias di richiamo/accertamento differenziale non risolto.", "Comparable/blinded ascertainment signal detected.": "Segnale di accertamento comparabile/in cieco rilevato.", "Differential measurement unresolved.": "Misurazione differenziale non risolta.", "Matching/adjustment signal detected.": "Segnale di matching/aggiustamento rilevato.", "Residual confounding unresolved.": "Confondimento residuo non risolto.", "Case-control analysis signal detected.": "Segnale di analisi caso-controllo rilevato.", "Analysis specification and reporting require verification.": "Specificazione dell'analisi e reporting richiedono verifica.", "Sampling strategy detected.": "Strategia di campionamento rilevata.", "Representativeness/selection bias unresolved.": "Rappresentatività/bias di selezione non risolti.", "Eligibility criteria detected.": "Criteri di eleggibilità rilevati.", "Eligibility definition unresolved.": "Definizione dell'eleggibilità non risolta.", "Measurement-quality signal detected.": "Segnale sulla qualità della misurazione rilevato.", "Exposure measurement validity unresolved.": "Validità della misurazione dell'esposizione non risolta.", "Outcome-definition signal detected.": "Segnale sulla definizione dell'outcome rilevato.", "Outcome ascertainment unresolved.": "Accertamento dell'outcome non risolto.", "Confounding strategy detected.": "Strategia per il confondimento rilevata.", "Statistical-analysis signal detected.": "Segnale di analisi statistica rilevato.", "Model assumptions/precision require verification.": "Assunzioni del modello/precisione richiedono verifica.", "Population/sampling-frame signal detected.": "Segnale su popolazione/frame di campionamento rilevato.", "Representativeness unresolved.": "Rappresentatività non risolta.", "Probability-sampling signal detected.": "Segnale di campionamento probabilistico rilevato.", "Sampling bias unresolved.": "Bias di campionamento non risolto.", "Sample-size planning detected.": "Pianificazione della numerosità campionaria rilevata.", "Precision planning unresolved.": "Pianificazione della precisione non risolta.", "Condition-measurement signal detected.": "Segnale sulla misurazione della condizione rilevato.", "Measurement validity unresolved.": "Validità della misurazione non risolta.", "Response information detected.": "Informazioni sulla risposta rilevate.", "Non-response bias unresolved.": "Bias da non risposta non risolto.", "Prevalence precision signal detected.": "Segnale sulla precisione della prevalenza rilevato.", "Estimation/weighting details unresolved.": "Dettagli di stima/ponderazione non risolti.", "Participant-selection signal detected.": "Segnale sulla selezione dei partecipanti rilevato.", "Participant selection/applicability unresolved.": "Selezione dei partecipanti/applicabilità non risolte.", "Index-test methods detected.": "Metodi del test indice rilevati.", "Threshold/interpretation bias unresolved.": "Bias legato a soglia/interpretazione non risolto.", "Target-condition/reference-standard signal detected.": "Segnale su condizione target/standard di riferimento rilevato.", "Target-condition classification unresolved.": "Classificazione della condizione target non risolta.", "Accuracy-analysis signal detected.": "Segnale di analisi dell'accuratezza rilevato.", "Estimate-specific exclusions/analysis choices unresolved.": "Esclusioni/scelte analitiche specifiche per la stima non risolte.", "A formal QUADAS-3 appraisal must be anchored to a synthesis question, ideal test accuracy trial and selected accuracy estimate.": "Un appraisal formale QUADAS-3 deve essere ancorato a una domanda di sintesi, a un ideal test accuracy trial e alla stima di accuratezza selezionata.", "The current QUADAS-3 framework is estimate-level. EvidenceOS therefore treats these as preliminary estimate-relevant signals, not a formal QUADAS-3 assessment.": "L'attuale framework QUADAS-3 opera a livello di stima. EvidenceOS tratta quindi questi elementi come segnali preliminari rilevanti per la stima, non come una valutazione QUADAS-3 formale.", "Methodological approach identified.": "Approccio metodologico identificato.", "Methodological congruity unresolved.": "Coerenza metodologica non risolta.", "Sampling adequacy unresolved.": "Adeguatezza del campionamento non risolta.", "Data-collection method detected.": "Metodo di raccolta dati rilevato.", "Depth/appropriateness of collection unresolved.": "Profondità/appropriatezza della raccolta dati non risolte.", "Reflexivity signal detected.": "Segnale di riflessività rilevato.", "Researcher influence/relationship unresolved.": "Influenza/relazione del ricercatore non risolta.", "Analytic method detected.": "Metodo analitico rilevato.", "Analytic rigor and auditability unresolved.": "Rigore analitico e verificabilità non risolti.", "Participant-data grounding signal detected.": "Segnale di radicamento nei dati dei partecipanti rilevato.", "Data-to-theme grounding unresolved.": "Radicamento dei temi nei dati non risolto.", "Ethics/consent signal detected.": "Segnale relativo a etica/consenso rilevato.", "Ethical conduct unresolved.": "Condotta etica non risolta.", "Protocol/registration detected.": "Protocollo/registrazione rilevato.", "Prospective protocol not verified.": "Protocollo prospettico non verificato.", "Multiple databases detected.": "Più database rilevati.", "Search coverage unresolved.": "Copertura della ricerca non risolta.", "Duplicate/independent process detected.": "Processo in duplicato/indipendente rilevato.", "Study selection/extraction duplication unresolved.": "Duplicazione di selezione/estrazione degli studi non risolta.", "Risk-of-bias appraisal detected.": "Appraisal del rischio di bias rilevato.", "Appropriateness of appraisal unresolved.": "Appropriatezza dell'appraisal non risolta.", "Synthesis-method signal detected.": "Segnale sui metodi di sintesi rilevato.", "Suitability of synthesis assumptions unresolved.": "Adeguatezza delle assunzioni di sintesi non risolta.", "Heterogeneity assessment detected.": "Valutazione dell'eterogeneità rilevata.", "Exploration/interpretation of heterogeneity unresolved.": "Esplorazione/interpretazione dell'eterogeneità non risolta.", "Small-study/publication-bias assessment detected.": "Valutazione del bias da piccoli studi/pubblicazione rilevata.", "Publication bias unresolved.": "Bias di pubblicazione non risolto.", "Funding/conflict information detected.": "Informazioni su finanziamenti/conflitti rilevate.", "Influence of conflicts/funding unresolved.": "Influenza di conflitti/finanziamenti non risolta.", "AMSTAR 2 is not a numerical score; EvidenceOS similarly reports domain signals and critical weaknesses rather than summing points.": "AMSTAR 2 non è un punteggio numerico; allo stesso modo EvidenceOS riporta segnali per dominio e debolezze critiche invece di sommare punti.", "This is not an official AMSTAR 2 assessment unless separately licensed/validated.": "Questa non è una valutazione AMSTAR 2 ufficiale salvo licenza/validazione separata.", "Clear inclusion criteria detected.": "Criteri di inclusione chiari rilevati.", "Case inclusion criteria unresolved.": "Criteri di inclusione dei casi non risolti.", "Condition ascertainment signal detected.": "Segnale sull'accertamento della condizione rilevato.", "Reliability of diagnosis unresolved.": "Affidabilità della diagnosi non risolta.", "Consecutive/complete inclusion signal detected.": "Segnale di inclusione consecutiva/completa rilevato.", "Selection of cases unresolved.": "Selezione dei casi non risolta.", "Participant description detected.": "Descrizione dei partecipanti rilevata.", "Completeness of participant description unresolved.": "Completezza della descrizione dei partecipanti non risolta.", "Clinical course/outcome signal detected.": "Segnale sul decorso clinico/outcome rilevato.", "Completeness of clinical reporting unresolved.": "Completezza del reporting clinico non risolta.", "Patient-description signal detected.": "Segnale sulla descrizione del paziente rilevato.", "Patient characteristics unresolved.": "Caratteristiche del paziente non risolte.", "History/timeline signal detected.": "Segnale su anamnesi/timeline rilevato.", "Clinical timeline unresolved.": "Timeline clinica non risolta.", "Diagnostic work-up signal detected.": "Segnale sul work-up diagnostico rilevato.", "Diagnostic reasoning unresolved.": "Ragionamento diagnostico non risolto.", "Intervention information detected.": "Informazioni sull'intervento rilevate.", "Intervention detail unresolved.": "Dettagli dell'intervento non risolti.", "Follow-up/outcome signal detected.": "Segnale su follow-up/outcome rilevato.", "Outcome completeness unresolved.": "Completezza dell'outcome non risolta.", "Predictor-definition signal detected.": "Segnale sulla definizione dei predittori rilevato.", "Predictor assessment/blinding unresolved.": "Valutazione dei predittori/blinding non risolti.", "Model-performance analysis detected.": "Analisi delle performance del modello rilevata.", "Overfitting, sample size and validation require verification.": "Overfitting, numerosità campionaria e validazione richiedono verifica.", "Formal PROBAST/PROBAST+AI use may require review-specific signalling judgements.": "L'uso formale di PROBAST/PROBAST+AI può richiedere giudizi sulle signalling questions specifici per la revisione.", "Economic perspective detected.": "Prospettiva economica rilevata.", "Perspective unresolved.": "Prospettiva non risolta.", "Comparator signal detected.": "Segnale sul comparatore rilevato.", "Relevance/completeness of alternatives unresolved.": "Rilevanza/completezza delle alternative non risolta.", "Cost/outcome measurement detected.": "Misurazione di costi/outcome rilevata.", "Valuation validity unresolved.": "Validità della valorizzazione non risolta.", "Time/discounting signal detected.": "Segnale su tempo/attualizzazione rilevato.", "Appropriateness unresolved.": "Appropriatezza non risolta.", "Incremental analysis detected.": "Analisi incrementale rilevata.", "Incremental-method validity unresolved.": "Validità del metodo incrementale non risolta.", "Uncertainty analysis detected.": "Analisi dell'incertezza rilevata.", "Structural/parameter uncertainty unresolved.": "Incertezza strutturale/dei parametri non risolta.", "Scope/purpose signal detected.": "Segnale su ambito/finalità rilevato.", "Scope clarity unresolved.": "Chiarezza dell'ambito non risolta.", "Stakeholder signal detected.": "Segnale sugli stakeholder rilevato.", "Stakeholder breadth unresolved.": "Ampiezza del coinvolgimento degli stakeholder non risolta.", "Evidence-development process detected.": "Processo di sviluppo delle evidenze rilevato.", "Rigour/updates unresolved.": "Rigore/aggiornamenti non risolti.", "Recommendations detected.": "Raccomandazioni rilevate.", "Specificity/actionability unresolved.": "Specificità/azionabilità non risolte.", "Implementation/applicability signal detected.": "Segnale su implementazione/applicabilità rilevato.", "Applicability planning unresolved.": "Pianificazione dell'applicabilità non risolta.", "Conflict/funding information detected.": "Informazioni su conflitti/finanziamenti rilevate.", "Editorial independence unresolved.": "Indipendenza editoriale non risolta.", "Objectives detected.": "Obiettivi rilevati.", "Objectives unresolved.": "Obiettivi non risolti.", "Methods signal detected.": "Segnale sui metodi rilevato.", "Method completeness unresolved.": "Completezza dei metodi non risolta.", "Registration detected.": "Registrazione rilevata.", "Registration not verified.": "Registrazione non verificata.", "Scoping reviews are evaluated for transparent question, search, selection, charting and synthesis methods rather than intervention-effect risk of bias.": "Le scoping review vengono valutate per trasparenza di domanda, ricerca, selezione, charting e metodi di sintesi, piuttosto che per il rischio di bias dell'effetto dell'intervento.", "Bibliographic search detected.": "Ricerca bibliografica rilevata.", "Search comprehensiveness unresolved.": "Completezza della ricerca non risolta.", "Independent selection signal detected.": "Segnale di selezione indipendente rilevato.", "Selection process unresolved.": "Processo di selezione non risolto.", "Charting/extraction signal detected.": "Segnale di charting/estrazione rilevato.", "Charting reliability unresolved.": "Affidabilità del charting non risolta.", "Synthesis method detected.": "Metodo di sintesi rilevato.", "Synthesis transparency unresolved.": "Trasparenza della sintesi non risolta.", "Protocols are assessed for planned methodological safeguards, not completed effect estimates.": "I protocolli vengono valutati per le salvaguardie metodologiche pianificate, non per stime di effetto completate.", "EvidenceOS could not route this report confidently to a design-specific appraisal engine.": "EvidenceOS non ha potuto indirizzare con sufficiente sicurezza questo report verso un motore di appraisal specifico per design.", "Confirm the study design before interpreting methodological trustworthiness.": "Conferma il design dello studio prima di interpretarne l'affidabilità metodologica.", "EvidenceOS extracted the PDF successfully, but the methodological appraisal layer encountered an internal error. The evidence record is still available and no trust judgement has been invented.": "EvidenceOS ha estratto correttamente il PDF, ma il livello di appraisal metodologico ha riscontrato un errore interno. Il record di evidenza resta disponibile e non è stato inventato alcun giudizio di affidabilità.", "EvidenceOS applies its own deterministic implementation of core randomized-trial bias concepts. This commercial software does not claim to reproduce the official RoB 2 instrument. Human verification remains required.": "EvidenceOS applica una propria implementazione deterministica dei principali concetti di bias nei trial randomizzati. Questo software commerciale non dichiara di riprodurre lo strumento RoB 2 ufficiale. Resta necessaria la verifica umana.", "At most three deterministically mapped outcomes are assessed in one synchronous request.": "In una singola richiesta sincrona vengono valutati al massimo tre outcome mappati deterministicamente.", "Formal use of third-party proprietary/licensed tools may require separate permission.": "L'uso formale di strumenti di terze parti proprietari o soggetti a licenza può richiedere un'autorizzazione separata.", "The engine evaluates major bias mechanisms relevant to non-randomized intervention studies without reproducing the official ROBINS-I instrument.": "Il motore valuta i principali meccanismi di bias rilevanti per gli studi di intervento non randomizzati senza riprodurre lo strumento ROBINS-I ufficiale.", "Full-text signals are organised around selection, exposure, confounding, follow-up, outcome measurement and analysis.": "I segnali del full text sono organizzati attorno a selezione, esposizione, confondimento, follow-up, misurazione dell'outcome e analisi.", "The engine focuses on case definition, control selection, exposure ascertainment, confounding and analysis.": "Il motore si concentra su definizione dei casi, selezione dei controlli, accertamento dell'esposizione, confondimento e analisi.", "The engine separates sampling, exposure/outcome measurement, confounding and analysis rather than generating a checklist score.": "Il motore separa campionamento, misurazione di esposizione/outcome, confondimento e analisi invece di generare un punteggio da checklist.", "The engine focuses on representativeness, sampling, condition measurement, response and precision.": "Il motore si concentra su rappresentatività, campionamento, misurazione della condizione, risposta e precisione.", "Interpretive research requires human methodological judgement; EvidenceOS highlights auditable signals rather than generating a quality score.": "La ricerca interpretativa richiede giudizio metodologico umano; EvidenceOS evidenzia segnali verificabili invece di generare un punteggio di qualità.", "The engine assesses clarity and completeness of case definition, inclusion, measurement and reporting.": "Il motore valuta chiarezza e completezza di definizione dei casi, inclusione, misurazione e reporting.", "Case reports are appraised for diagnostic/clinical clarity and completeness rather than comparative causal inference.": "I case report vengono valutati per chiarezza e completezza diagnostica/clinica, non per inferenza causale comparativa.", "The engine structures signals around participants, predictors, outcome and analysis.": "Il motore struttura i segnali attorno a partecipanti, predittori, outcome e analisi.", "The engine examines perspective, comparators, costs/outcomes, time horizon, discounting and uncertainty.": "Il motore esamina prospettiva, comparatori, costi/outcome, orizzonte temporale, attualizzazione e incertezza.", "Guidelines require appraisal of scope, stakeholders, development rigour, clarity, applicability and editorial independence.": "Le linee guida richiedono appraisal di ambito, stakeholder, rigore dello sviluppo, chiarezza, applicabilità e indipendenza editoriale."};
+const EOS_TEXT_ORIGINAL=new WeakMap();
+const EOS_ATTR_ORIGINAL=new WeakMap();
+
+function eosPatternTranslate(s){
+ if(EOS_LANG!=='it')return s;
+ let m;
+ if((m=s.match(/^Updated (.+)$/)))return `Aggiornato ${m[1]}`;
+ if((m=s.match(/^Project (PROJ-.+)$/)))return `Progetto ${m[1]}`;
+ if((m=s.match(/^Approx\. ([\d.]+) MB stored locally · (\d+)% of a conservative 5 MB browser-storage estimate$/)))return `Circa ${m[1]} MB archiviati localmente · ${m[2]}% di una stima conservativa di 5 MB per lo storage del browser`;
+ if((m=s.match(/^(\d+) study\/studies · (\d+) extracted result\(s\)$/)))return `${m[1]} studio/i · ${m[2]} risultato/i estratto/i`;
+ if((m=s.match(/^(\d+) analysed studies\/results show a broadly consistent direction\.$/)))return `${m[1]} studi/risultati analizzati mostrano una direzione ampiamente coerente.`;
+ if((m=s.match(/^(\d+) analysed full-text study\/studies are currently stored\.$/)))return `Sono attualmente salvati ${m[1]} studio/i full text analizzato/i.`;
+ if((m=s.match(/^Body-level consistency: (.+)\.$/)))return `Coerenza a livello di body of evidence: ${eosTranslate(m[1])}.`;
+ if((m=s.match(/^Methodological appraisal information: (.+)\.$/)))return `Informazioni sull'appraisal metodologico: ${eosTranslate(m[1])}.`;
+ if((m=s.match(/^Precision information: (.+)\.$/)))return `Informazioni sulla precisione: ${eosTranslate(m[1])}.`;
+ if((m=s.match(/^Only (\d+) analysed study\/studies contribute to this outcome\.$/)))return `Solo ${m[1]} studio/i analizzato/i contribuisce/contribuiscono a questo outcome.`;
+ if((m=s.match(/^(\d+) analysed studies contribute to this outcome\.$/)))return `${m[1]} studi analizzati contribuiscono a questo outcome.`;
+ if((m=s.match(/^Evidence addressing (.+) may be sparse\.$/)))return `Le evidenze relative a ${m[1]} potrebbero essere scarse.`;
+ if((m=s.match(/^Evidence for (.+) may be insufficiently precise\.$/)))return `Le evidenze per ${m[1]} potrebbero essere insufficientemente precise.`;
+ if((m=s.match(/^Inconsistency in evidence for (.+) may require explanation\.$/)))return `L'incoerenza delle evidenze per ${m[1]} potrebbe richiedere una spiegazione.`;
+ if((m=s.match(/^Only one analysed study currently contributes to this outcome\.$/)))return `Attualmente un solo studio analizzato contribuisce a questo outcome.`;
+ if((m=s.match(/^Confidence-interval information is incomplete in the currently analysed evidence\.$/)))return `Le informazioni sugli intervalli di confidenza sono incomplete nelle evidenze attualmente analizzate.`;
+ if((m=s.match(/^The analysed results do not all point in the same direction\.$/)))return `I risultati analizzati non indicano tutti la stessa direzione.`;
+ if((m=s.match(/^Several outcomes are currently represented by only one analysed study: (.+)$/)))return `Diversi outcome sono attualmente rappresentati da un solo studio analizzato: ${m[1]}`;
+ if((m=s.match(/^(.+): results include effects in opposite directions\.$/)))return `${m[1]}: i risultati includono effetti in direzioni opposte.`;
+ if((m=s.match(/^(.+): positive\/negative directional findings coexist with no-clear-difference results\.$/)))return `${m[1]}: risultati con direzione positiva/negativa coesistono con risultati senza una differenza chiara.`;
+ if((m=s.match(/^The proposed (.+) gap is not supported by this anti-gap search: (\d+) direct counterexample\(s\) were identified\.$/)))return `Il gap di tipo ${eosTranslate(m[1])} proposto non è supportato da questa ricerca anti-gap: sono stati identificati ${m[2]} controesempi diretti.`;
+ if((m=s.match(/^(\d+) direct counterexample\(s\) were found\. The original gap is too broad and should be narrowed rather than presented as an absence of research\.$/)))return `Sono stati trovati ${m[1]} controesempi diretti. Il gap originale è troppo ampio e dovrebbe essere ristretto invece di essere presentato come assenza di ricerca.`;
+ if((m=s.match(/^The literature is not absent for (.+); the remaining question is whether existing evidence adequately resolves the (.+) limitation\.$/)))return `La letteratura su ${m[1]} non è assente; resta da stabilire se le evidenze esistenti risolvano adeguatamente la limitazione di ${eosTranslate(m[2])}.`;
+ if((m=s.match(/^(\d+) directly relevant PubMed record\(s\) contain abstract-level language potentially inconsistent with the current conclusion\.$/)))return `${m[1]} record PubMed direttamente rilevanti contengono formulazioni a livello di abstract potenzialmente incoerenti con la conclusione corrente.`;
+ if((m=s.match(/^(\d+) directly relevant systematic review\/meta-analysis record\(s\) may challenge the current conclusion\.$/)))return `${m[1]} record di revisione sistematica/meta-analisi direttamente rilevanti potrebbero mettere in discussione la conclusione corrente.`;
+ if((m=s.match(/^(\d+) relevant record\(s\) explicitly signal longer-term\/follow-up evidence that may alter durability claims\.$/)))return `${m[1]} record rilevanti segnalano esplicitamente evidenze a più lungo termine/follow-up che potrebbero modificare le conclusioni sulla durata.`;
+ if((m=s.match(/^Study saved: (.+)$/)))return `Studio salvato: ${m[1]}`;
+ if((m=s.match(/^Challenge candidate added: (.+)$/)))return `Candidato del challenge aggiunto: ${m[1]}`;
+ if((m=s.match(/^Challenge candidate PDF added: (.+)$/)))return `PDF del candidato del challenge aggiunto: ${m[1]}`;
+ if((m=s.match(/^Gap (.+): (.+)$/)))return `Gap ${m[1]}: ${eosTranslate(m[2])}`;
+ if((m=s.match(/^(.+): (survived|survived_with_qualification|materially_weakened|unresolved)$/)))return `${m[1]}: ${eosTranslate(m[2])}`;
+ if((m=s.match(/^Could not import EvidenceOS project: (.+)$/)))return `Impossibile importare il progetto EvidenceOS: ${m[1]}`;
+ if((m=s.match(/^Project validation failed \(HTTP (\d+)\)$/)))return `Validazione del progetto non riuscita (HTTP ${m[1]})`;
+ if((m=s.match(/^Search failed \(HTTP (\d+)\)$/)))return `Ricerca non riuscita (HTTP ${m[1]})`;
+ if((m=s.match(/^Study workspace failed \(HTTP (\d+)\)$/)))return `Study Workspace non riuscito (HTTP ${m[1]})`;
+ if((m=s.match(/^Synthesis failed \(HTTP (\d+)\)$/)))return `Sintesi non riuscita (HTTP ${m[1]})`;
+ if((m=s.match(/^Gap falsification failed \(HTTP (\d+)\)$/)))return `Falsificazione del gap non riuscita (HTTP ${m[1]})`;
+ if((m=s.match(/^Conclusion challenge failed \(HTTP (\d+)\)$/)))return `Challenge della conclusione non riuscito (HTTP ${m[1]})`;
+ if((m=s.match(/^Candidate intake failed \(HTTP (\d+)\)$/)))return `Importazione del candidato non riuscita (HTTP ${m[1]})`;
+ return s;
+}
+function eosTranslate(value){
+ const s=String(value??'');
+ if(EOS_LANG!=='it')return s;
+ return EOS_IT[s]||eosPatternTranslate(s);
+}
+function eosTranslateTextNode(node){
+ if(!EOS_TEXT_ORIGINAL.has(node))EOS_TEXT_ORIGINAL.set(node,node.data);
+ const original=EOS_TEXT_ORIGINAL.get(node);
+ node.data=EOS_LANG==='it'?eosTranslate(original):original;
+}
+function eosTranslateAttrs(el){
+ if(!(el instanceof Element))return;
+ const attrs=['placeholder','title','aria-label'];
+ let bag=EOS_ATTR_ORIGINAL.get(el);
+ if(!bag){bag={};EOS_ATTR_ORIGINAL.set(el,bag)}
+ attrs.forEach(a=>{
+   if(el.hasAttribute(a)){
+     if(!(a in bag))bag[a]=el.getAttribute(a);
+     el.setAttribute(a,EOS_LANG==='it'?eosTranslate(bag[a]):bag[a]);
+   }
+ });
+}
+function eosWalk(root=document.body){
+ if(!root)return;
+ if(root.nodeType===Node.TEXT_NODE){eosTranslateTextNode(root);return}
+ if(root.nodeType===Node.ELEMENT_NODE)eosTranslateAttrs(root);
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);
+ let n;
+ while((n=walker.nextNode())){
+   if(n.nodeType===Node.TEXT_NODE)eosTranslateTextNode(n);
+   else eosTranslateAttrs(n);
+ }
+}
+function eosDate(value){
+ try{return new Date(value).toLocaleString(EOS_LANG==='it'?'it-IT':'en-GB')}catch(_){return value}
+}
+function updateLanguageButtons(){
+ document.querySelectorAll('[data-lang-choice]').forEach(b=>b.classList.toggle('active',b.dataset.langChoice===EOS_LANG));
+ document.documentElement.lang=EOS_LANG;
+}
+function setLanguage(lang){
+ EOS_LANG=lang==='it'?'it':'en';
+ localStorage.setItem(LANG_KEY,EOS_LANG);
+ updateLanguageButtons();
+ eosWalk(document.body);
+ // Re-render data-rich views so locale-sensitive dates are updated.
+ try{renderProjectShell()}catch(_){}
+ try{renderProjectHistory()}catch(_){}
+ try{renderCorpus()}catch(_){}
+ try{renderEvidenceGraph()}catch(_){}
+}
+const _nativeAlert=window.alert.bind(window),_nativeConfirm=window.confirm.bind(window),_nativePrompt=window.prompt.bind(window);
+window.alert=(msg)=>_nativeAlert(eosTranslate(msg));
+window.confirm=(msg)=>_nativeConfirm(eosTranslate(msg));
+window.prompt=(msg,def='')=>_nativePrompt(eosTranslate(msg),eosTranslate(def));
+const EOS_I18N_OBSERVER=new MutationObserver(ms=>{
+ for(const m of ms){
+   if(m.type==='characterData')eosTranslateTextNode(m.target);
+   for(const n of m.addedNodes||[])eosWalk(n);
+ }
+});
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function badge(status){const s=status||'unverified';return `<span class="status ${esc(s)}">${esc(s)}</span>`}
 function fieldRow(label,f){if(!f)return '';let val=f.value;if(typeof val==='object')val=JSON.stringify(val);return `<div class="row"><span>${esc(label)}</span><div><b>${esc(val)}</b> ${f.unit?`<span class="muted">${esc(f.unit)}</span>`:''} ${badge(f.status)}${f.derivation?`<div class="muted">Derived: ${esc(f.derivation)}</div>`:''}</div></div>`}
@@ -361,6 +537,105 @@ function render(rec, detectedDesign=null){
  html.push(`<div class="block"><h4>Epistemic alarms</h4>${alarms.length?alarms.map(a=>`<div class="alarm ${esc(a.severity)}"><b>${esc(a.code)}</b><div>${esc(a.message)}</div></div>`).join(''):'<div class="record muted">No internal consistency alarm was triggered for the extracted fields.</div>'}</div>`);
  html.push(`<div class="block"><details><summary style="cursor:pointer;font-weight:700">Raw record JSON</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f7f9f8;padding:14px;border-radius:12px;overflow:auto">${esc(JSON.stringify(rec,null,2))}</pre></details></div>`);
  document.getElementById('results').innerHTML=html.join('');
+}
+
+
+function collectQuestion(){
+ return {
+   question:document.getElementById('qtext')?.value||'',
+   population:document.getElementById('qpop')?.value||'',
+   intervention:document.getElementById('qint')?.value||'',
+   comparator:document.getElementById('qcomp')?.value||'',
+   outcomes:document.getElementById('qout')?.value||'',
+   timepoint:document.getElementById('qtime')?.value||''
+ };
+}
+function applyQuestion(q={}){
+ const map={qtext:'question',qpop:'population',qint:'intervention',qcomp:'comparator',qout:'outcomes',qtime:'timepoint'};
+ Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.value=q[key]||''});
+}
+let questionSaveTimer=null;
+function scheduleQuestionSave(){
+ clearTimeout(questionSaveTimer);
+ questionSaveTimer=setTimeout(()=>{
+   const p=getActiveProject();p.question=collectQuestion();saveProject(p);
+ },350);
+}
+function bindQuestionAutosave(){
+ ['qtext','qpop','qint','qcomp','qout','qtime'].forEach(id=>{
+   const el=document.getElementById(id);if(el)el.addEventListener('input',scheduleQuestionSave);
+ });
+}
+function newProject(){
+ const name=prompt(eosTranslate('Project name'),eosTranslate('New evidence project'));if(!name)return;
+ const projects=readProjects(),p=emptyProject(name.trim()||'New evidence project');
+ projects.push(p);persistProjects(projects);localStorage.setItem(ACTIVE_PROJECT_KEY,p.project_id);
+ applyProjectToUI(p);renderProjectShell();renderCorpus();renderEvidenceGraph();
+ document.getElementById('synthResults').innerHTML='<div class="empty" style="height:260px"><div><strong>New project ready.</strong><div class="muted">Define the question and add full-text studies.</div></div></div>';
+}
+function switchProject(id){
+ const projects=readProjects(),p=projects.find(x=>x.project_id===id);if(!p)return;
+ localStorage.setItem(ACTIVE_PROJECT_KEY,id);applyProjectToUI(p);renderProjectShell();renderCorpus();
+ if(p.latest_synthesis)renderSynthesis(p.latest_synthesis);else document.getElementById('synthResults').innerHTML='<div class="empty" style="height:260px"><div><strong>No synthesis yet for this project.</strong></div></div>';
+ renderEvidenceGraph();
+}
+function renameActiveProject(name){
+ const p=getActiveProject();p.name=(name||'').trim()||p.name;saveProject(p);
+}
+function applyProjectToUI(p){
+ applyQuestion(p.question||{});
+ const name=document.getElementById('projectName');if(name)name.value=p.name||'';
+}
+function renderProjectShell(){
+ const state=ensureProjectState(),p=state.projects.find(x=>x.project_id===state.active)||state.projects[0];
+ const sel=document.getElementById('projectSelect');
+ if(sel){sel.innerHTML=state.projects.map(x=>`<option value="${esc(x.project_id)}" ${x.project_id===p.project_id?'selected':''}>${esc(x.name)}</option>`).join('')}
+ const name=document.getElementById('projectName');if(name)name.value=p.name||'';
+ const pill=document.getElementById('projectIdPill');if(pill)pill.textContent=`Project ${p.project_id}`;
+ const sc=document.getElementById('projectStudyCount');if(sc)sc.textContent=(p.corpus||[]).length;
+ const rc=document.getElementById('projectRevisionCount');if(rc)rc.textContent=(p.events||[]).length;
+ const up=document.getElementById('projectUpdated');if(up)up.textContent=`Updated ${eosDate(p.updated_at)}`;
+ renderProjectHistory();updateStorageMeter();
+}
+function renderProjectHistory(){
+ const p=getActiveProject(),root=document.getElementById('projectHistory');if(!root)return;
+ const events=(p.events||[]).slice(0,30);
+ root.innerHTML=events.length?events.map(e=>`<div class="history-event"><b>${esc(e.label)}</b><span>${esc(e.event_type)} · ${eosDate(e.timestamp)}</span></div>`).join(''):'<div class="muted">No revisions yet. Synthesis, challenge and gap-falsification events will appear here.</div>';
+}
+function updateStorageMeter(){
+ const projects=readProjects(),bytes=new Blob([JSON.stringify(projects)]).size,approxLimit=5*1024*1024;
+ const pct=Math.min(100,Math.round(bytes/approxLimit*100));
+ const bar=document.getElementById('storageMeter');if(bar)bar.style.width=`${pct}%`;
+ const label=document.getElementById('storageLabel');if(label)label.textContent=`Approx. ${(bytes/1024/1024).toFixed(2)} MB stored locally · ${pct}% of a conservative 5 MB browser-storage estimate`;
+}
+function exportProject(){
+ const p=getActiveProject();
+ const blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=`EvidenceOS_${(p.name||'project').replace(/[^a-z0-9_-]+/gi,'_')}_${p.project_id}.json`;
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ recordProjectEvent('export','Project exported as JSON',{});
+}
+async function importProjectFile(input){
+ const f=input.files?.[0];if(!f)return;
+ try{
+   const raw=await f.text(),candidate=JSON.parse(raw);
+   const r=await fetch('/v1/project/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project:candidate})});
+   const txt=await r.text();let d=null;try{d=JSON.parse(txt)}catch(_){}
+   if(!r.ok)throw new Error(d?.detail||`Project validation failed (HTTP ${r.status})`);
+   const p=d.project,projects=readProjects();
+   // Avoid silently overwriting a local project with the same ID.
+   if(projects.some(x=>x.project_id===p.project_id))p.project_id=uid('PROJ');
+   p.name=`${p.name} (imported)`;
+   p.events=p.events||[];
+   p.events.unshift({event_id:uid('EVT'),event_type:'import',timestamp:isoNow(),label:'Project imported and validated',payload:{warnings:d.warnings||[]}});
+   projects.push(p);persistProjects(projects);localStorage.setItem(ACTIVE_PROJECT_KEY,p.project_id);
+   applyProjectToUI(p);renderProjectShell();renderCorpus();
+   if(p.latest_synthesis)renderSynthesis(p.latest_synthesis);
+   renderEvidenceGraph();
+   if((d.warnings||[]).length)alert(d.warnings.join('\n'));
+ }catch(e){alert(`Could not import EvidenceOS project: ${e.message}`)}
+ finally{input.value=''}
 }
 
 function questionDemo(){
@@ -479,13 +754,70 @@ async function searchEvidence(){
 }
 
 
-const CORPUS_KEY='evidenceos_v7_corpus';
+const PROJECTS_KEY='evidenceos_v11_projects';
+const ACTIVE_PROJECT_KEY='evidenceos_v11_active_project';
+const LEGACY_CORPUS_KEY='evidenceos_v7_corpus';
+const PROJECT_SCHEMA='11.0-alpha';
 
-function getCorpus(){
- try{return JSON.parse(localStorage.getItem(CORPUS_KEY)||'[]')}catch(_){return []}
+function isoNow(){return new Date().toISOString()}
+function uid(prefix='PROJ'){return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`}
+function emptyProject(name='Untitled evidence project'){
+ const now=isoNow();
+ return {schema_version:PROJECT_SCHEMA,project_id:uid(),name,created_at:now,updated_at:now,
+   question:{question:'',population:'',intervention:'',comparator:'',outcomes:'',timepoint:''},
+   corpus:[],latest_synthesis:null,synthesis_history:[],events:[]};
 }
+function readProjects(){
+ try{
+   const x=JSON.parse(localStorage.getItem(PROJECTS_KEY)||'[]');
+   return Array.isArray(x)?x:[];
+ }catch(_){return []}
+}
+function persistProjects(items){
+ try{
+   localStorage.setItem(PROJECTS_KEY,JSON.stringify(items));
+   updateStorageMeter();
+ }catch(e){
+   alert('Browser storage is full. Export this project as JSON before adding more evidence.');
+   throw e;
+ }
+}
+function ensureProjectState(){
+ let projects=readProjects();
+ if(!projects.length){
+   const p=emptyProject('Evidence project 1');
+   try{
+     const legacy=JSON.parse(localStorage.getItem(LEGACY_CORPUS_KEY)||'[]');
+     if(Array.isArray(legacy)&&legacy.length){p.corpus=legacy;p.events.push({event_id:uid('EVT'),event_type:'migration',timestamp:isoNow(),label:`Migrated ${legacy.length} legacy study/studies into v11`,payload:{count:legacy.length}})}
+   }catch(_){}
+   projects=[p];persistProjects(projects);localStorage.setItem(ACTIVE_PROJECT_KEY,p.project_id);
+ }
+ let active=localStorage.getItem(ACTIVE_PROJECT_KEY);
+ if(!active||!projects.some(p=>p.project_id===active)){active=projects[0].project_id;localStorage.setItem(ACTIVE_PROJECT_KEY,active)}
+ return {projects,active};
+}
+function getActiveProject(){
+ const {projects,active}=ensureProjectState();
+ return projects.find(p=>p.project_id===active)||projects[0];
+}
+function saveProject(project){
+ const state=ensureProjectState(),projects=state.projects;
+ project.updated_at=isoNow();
+ const idx=projects.findIndex(p=>p.project_id===project.project_id);
+ if(idx>=0)projects[idx]=project;else projects.push(project);
+ persistProjects(projects);
+ renderProjectShell();
+}
+function recordProjectEvent(type,label,payload={}){
+ const p=getActiveProject();
+ p.events=p.events||[];
+ p.events.unshift({event_id:uid('EVT'),event_type:type,timestamp:isoNow(),label,payload});
+ p.events=p.events.slice(0,2000);
+ saveProject(p);
+}
+function getCorpus(){return getActiveProject().corpus||[]}
 function setCorpus(items){
- localStorage.setItem(CORPUS_KEY,JSON.stringify(items));renderCorpus();
+ const p=getActiveProject();p.corpus=items;saveProject(p);renderCorpus();renderEvidenceGraph();
 }
 function saveCurrentStudy(){
  const s=window._lastAnalysedStudy;if(!s)return;
@@ -493,6 +825,7 @@ function saveCurrentStudy(){
  const idx=items.findIndex(x=>x.report_id===s.report_id);
  if(idx>=0)items[idx]=s;else items.push(s);
  setCorpus(items);
+ recordProjectEvent('study_saved',`Study saved: ${s.title}`,{report_id:s.report_id,design:s.design});
  document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});
 }
 function removeCorpusStudy(reportId){
@@ -517,6 +850,15 @@ async function synthesizeCorpus(){
    const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
    if(!r.ok)throw new Error(d?.detail||`Synthesis failed (HTTP ${r.status})`);
    renderSynthesis(d);
+   const p=getActiveProject();
+   p.latest_synthesis=d;
+   p.synthesis_history=p.synthesis_history||[];
+   p.synthesis_history.unshift({timestamp:isoNow(),headline:d.headline,confidence:d.confidence||{},outcomes:d.outcomes||[],gap_hypotheses:d.gap_hypotheses||[],contradictions:d.contradictions||[]});
+   p.synthesis_history=p.synthesis_history.slice(0,250);
+   p.events=p.events||[];
+   p.events.unshift({event_id:uid('EVT'),event_type:'synthesis',timestamp:isoNow(),label:d.headline||'Evidence synthesis updated',payload:{studies:d.studies||0,outcomes:(d.outcomes||[]).length,confidence:d.confidence?.overall_label||null}});
+   saveProject(p);
+   renderEvidenceGraph();
  }catch(e){root.innerHTML=`<div class="record" style="color:#913f34">${esc(e.message)}</div>`}
  finally{btn.disabled=false;btn.textContent='Synthesize evidence'}
 }
@@ -536,6 +878,8 @@ async function falsifyGap(g){
    })});
    const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
    if(!r.ok)throw new Error(d?.detail||`Gap falsification failed (HTTP ${r.status})`);
+   recordProjectEvent('gap_falsification',`Gap ${g.gap_id}: ${d.verdict}`,{gap:g,result:d});
+   renderEvidenceGraph();
    const records=(d.records||[]).slice(0,8).map(x=>`<div class="antigap-result"><div class="antigap-class ${esc(x.classification)}">${esc(x.classification)}</div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
    root.innerHTML=`<div class="record" style="margin-top:10px"><div class="block-head"><b>Gap falsification result</b><span class="verdict ${esc(d.verdict)}">${esc(d.verdict)}</span></div><div style="margin-top:8px">${esc(d.interpretation)}</div>${d.revised_gap?`<div class="alarm info"><b>Refined statement</b><div>${esc(d.revised_gap)}</div></div>`:''}<div class="row"><span>Records examined</span><b>${d.records_examined}</b></div><div class="row"><span>Direct counterevidence</span><b>${d.direct_evidence}</b></div><div class="row"><span>Partial counterevidence</span><b>${d.partial_evidence}</b></div><details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Anti-gap search provenance</summary><div class="muted" style="margin-top:6px"><b>PubMed query</b><br>${esc(d.anti_gap_query)}</div><div style="margin-top:8px">${records||'<span class="muted">No records returned.</span>'}</div><div class="method-note">${esc(d.negative_search_caveat)}</div></details></div>`;
  }catch(e){root.innerHTML=`<div class="alarm critical">${esc(e.message)}</div>`}
@@ -569,6 +913,7 @@ async function intakeCandidate(candidate,button){
      const idx=items.findIndex(x=>x.report_id===s.report_id);
      if(idx>=0)items[idx]=s;else items.push(s);
      setCorpus(items);
+     recordProjectEvent('candidate_import',`Challenge candidate added: ${s.title}`,{report_id:s.report_id,source:s.provenance?.source||null});
      if(slot)slot.innerHTML=`<div class="intake-status success"><b>Added automatically.</b><br>${esc(d.message)}${d.pmcid?`<br>PMC: ${esc(d.pmcid)} · License: ${esc(d.license||'not reported')}`:''}</div>`;
      button.textContent='Added to corpus';
      document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});
@@ -619,6 +964,8 @@ async function challengeOutcome(o){
    })});
    const raw=await r.text();let d=null;try{d=JSON.parse(raw)}catch(_){}
    if(!r.ok)throw new Error(d?.detail||`Conclusion challenge failed (HTTP ${r.status})`);
+   recordProjectEvent('conclusion_challenge',`${o.outcome}: ${d.verdict}`,{outcome:o.outcome,result:d});
+   renderEvidenceGraph();
    const dims=(d.dimensions||[]).map(x=>`<div class="challenge-dim"><div class="block-head"><b>${esc(x.dimension.replaceAll('_',' '))}</b><span class="sev ${esc(x.severity)}">${esc(x.severity)}</span></div><div class="muted">${esc(x.rationale)}</div></div>`).join('');
    const records=(d.records||[]).slice(0,10).map(x=>`<div class="challenge-record"><div class="block-head"><span class="challenge-signal ${esc(x.challenge_signal)}">${esc(x.challenge_signal.replaceAll('_',' '))}</span><span class="db">${esc(x.evidence_level)}</span></div><b style="font-size:12px">${esc(x.title)}</b><div class="muted">${esc([x.year,x.journal,x.pmid?`PMID ${x.pmid}`:''].filter(Boolean).join(' · '))}</div><div class="muted">${esc(x.rationale)}</div>${x.relevance!=='indirect'?`<div class="gap-actions"><button class="small-btn" onclick='intakeCandidate(${JSON.stringify({title:x.title,pmid:x.pmid||null,doi:x.doi||null})},this)'>Add to evidence corpus →</button></div><div class="intake-slot"></div>`:''}</div>`).join('');
    const verdictClass=d.verdict==='materially_weakened'?'critical':d.verdict==='survived'?'verified':'warning';
@@ -640,7 +987,88 @@ function renderSynthesis(d){
  <div class="synth-card" style="margin-bottom:16px"><div class="kicker">How resolved is the evidence?</div><h3 style="margin:4px 0">${esc(c.overall_label)}</h3><div class="confidence-grid"><div class="conf-item"><b>Quantity</b><span>${esc(c.quantity)}</span></div><div class="conf-item"><b>Consistency</b><span>${esc(c.consistency)}</span></div><div class="conf-item"><b>Methodology</b><span>${esc(c.methodological_trust)}</span></div><div class="conf-item"><b>Precision</b><span>${esc(c.precision)}</span></div><div class="conf-item"><b>Directness</b><span>${esc(c.directness)}</span></div></div>${(c.rationale||[]).map(x=>`<div class="muted">• ${esc(x)}</div>`).join('')}</div>
  <div class="synth-grid"><div class="synth-card"><div class="kicker">Outcome bodies</div>${outcomes||'<div class="muted">No outcome-level evidence available.</div>'}</div><div><div class="synth-card"><div class="kicker">Contradictions</div>${contradictions||'<div class="muted">No explicit directional contradiction detected.</div>'}</div><div class="synth-card" style="margin-top:16px"><div class="kicker">What remains uncertain?</div>${gaps||'<div class="muted">No broad uncertainty automatically detected.</div>'}<div style="margin-top:14px"><b>Falsifiable gap hypotheses</b><div class="muted">EvidenceOS treats each apparent gap as a hypothesis and actively searches for counterevidence before calling it a research opportunity.</div>${gapHyp||'<div class="record muted">No falsifiable gap hypothesis generated from this corpus.</div>'}</div></div></div></div>`;
 }
-window.addEventListener('DOMContentLoaded',renderCorpus);
+window.addEventListener('DOMContentLoaded',()=>{
+ updateLanguageButtons();
+ EOS_I18N_OBSERVER.observe(document.body,{subtree:true,childList:true,characterData:true});
+ eosWalk(document.body);
+ ensureProjectState();
+ const p=getActiveProject();
+ applyProjectToUI(p);
+ renderProjectShell();
+ renderCorpus();
+ if(p.latest_synthesis)renderSynthesis(p.latest_synthesis);
+ renderEvidenceGraph();
+ bindQuestionAutosave();
+ eosWalk(document.body);
+});
+
+
+function wrapLabel(text,max=24){
+ const words=String(text||'').split(/\s+/),lines=[],cur=[];
+ for(const w of words){
+   if((cur.join(' ')+' '+w).trim().length>max&&cur.length){lines.push(cur.join(' '));cur.length=0}
+   cur.push(w);
+ }
+ if(cur.length)lines.push(cur.join(' '));
+ return lines.slice(0,3);
+}
+function graphNode(cls,x,y,w,h,label,sub=''){
+ const lines=wrapLabel(label,Math.max(16,Math.floor(w/7)));
+ const t=lines.map((line,i)=>`<text x="${x+10}" y="${y+20+i*14}">${esc(line)}</text>`).join('');
+ const s=sub?`<text x="${x+10}" y="${y+h-9}" style="font-size:9px;fill:#65766f">${esc(sub)}</text>`:'';
+ return `<g class="graph-node ${cls}"><rect x="${x}" y="${y}" rx="10" ry="10" width="${w}" height="${h}"></rect>${t}${s}</g>`;
+}
+function renderEvidenceGraph(){
+ const root=document.getElementById('graphRoot');if(!root)return;
+ const p=getActiveProject(),studies=p.corpus||[],syn=p.latest_synthesis;
+ if(!studies.length&&!syn){root.className='graph-empty';root.innerHTML='Add analysed studies to this project to build the graph.';return}
+ root.className='';
+ const outcomes=syn?.outcomes||[],gaps=syn?.gap_hypotheses||[];
+ const challengeEvents=(p.events||[]).filter(e=>e.event_type==='conclusion_challenge').slice(0,12);
+ const width=1180,rowH=88;
+ const rows=Math.max(studies.length,outcomes.length,gaps.length,challengeEvents.length,1);
+ const height=Math.max(420,120+rows*rowH);
+ const q={x:20,y:height/2-35,w:200,h:70};
+ const sx=270,ox=520,cx=760,gx=980,nodeW=180,nodeH=62;
+ let svg=`<svg viewBox="0 0 ${width} ${height}" width="100%" style="min-width:950px;height:auto">`;
+ const qlabel=p.question?.question||p.name||'Research question';
+ svg+=graphNode('graph-question',q.x,q.y,q.w,q.h,qlabel,'research question');
+
+ studies.forEach((s,i)=>{
+   const y=40+i*rowH;
+   svg+=`<line class="graph-edge" x1="${q.x+q.w}" y1="${q.y+q.h/2}" x2="${sx}" y2="${y+nodeH/2}"/>`;
+   svg+=graphNode('graph-study',sx,y,nodeW,nodeH,s.title,s.design||'study');
+ });
+
+ outcomes.forEach((o,i)=>{
+   const y=40+i*rowH;
+   const contributors=new Set(o.contributing_reports||[]);
+   studies.forEach((s,j)=>{
+     if(contributors.has(s.report_id)){
+       const sy=40+j*rowH;
+       svg+=`<line class="graph-edge" x1="${sx+nodeW}" y1="${sy+nodeH/2}" x2="${ox}" y2="${y+nodeH/2}"/>`;
+     }
+   });
+   svg+=graphNode('graph-outcome',ox,y,nodeW,nodeH,o.outcome,`${o.dominant_direction} · ${o.consistency}`);
+ });
+
+ challengeEvents.forEach((e,i)=>{
+   const outcome=e.payload?.outcome||'Conclusion challenge';
+   const target=Math.max(0,outcomes.findIndex(o=>o.outcome===outcome));
+   const ty=40+target*rowH,y=40+i*rowH;
+   if(outcomes.length)svg+=`<line class="graph-edge" x1="${ox+nodeW}" y1="${ty+nodeH/2}" x2="${cx}" y2="${y+nodeH/2}"/>`;
+   svg+=graphNode('graph-challenge',cx,y,nodeW,nodeH,outcome,e.payload?.result?.verdict||'challenge');
+ });
+
+ gaps.forEach((g,i)=>{
+   const target=Math.max(0,outcomes.findIndex(o=>o.outcome===g.topic));
+   const ty=40+target*rowH,y=40+i*rowH;
+   if(outcomes.length)svg+=`<line class="graph-edge" x1="${ox+nodeW}" y1="${ty+nodeH/2}" x2="${gx}" y2="${y+nodeH/2}"/>`;
+   svg+=graphNode('graph-gap',gx,y,170,nodeH,g.statement,g.gap_type);
+ });
+ svg+='</svg>';
+ root.innerHTML=svg;
+}
 
 function pdfSelected(){
  const f=document.getElementById('pdfFile').files[0];
@@ -713,6 +1141,7 @@ async function runPdf(){
      const idx=items.findIndex(x=>x.report_id===s.report_id);
      if(idx>=0)items[idx]=s;else items.push(s);
      setCorpus(items);
+     recordProjectEvent('candidate_pdf',`Challenge candidate PDF added: ${s.title}`,{report_id:s.report_id});
      save.innerHTML='<div><b>Challenge candidate added to corpus.</b><div class="muted">EvidenceOS will recalculate the synthesis automatically.</div></div><span class="status verified">saved</span>';
      setTimeout(()=>{document.getElementById('synthesis').scrollIntoView({behavior:'smooth'});synthesizeCorpus()},750);
    }
